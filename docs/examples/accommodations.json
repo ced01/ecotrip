@@ -1,0 +1,46 @@
+{
+  "status": "complete",
+  "items": [
+    {
+      "id": "demo-stay",
+      "name": "Hébergement fictif de contrat",
+      "destinationId": "demo-lyon",
+      "dataStatus": "demo",
+      "features": {
+        "bicycleParking": true,
+        "publicTransportNearby": null
+      },
+      "publicTransportDistanceMeters": null,
+      "price": null,
+      "evidence": [],
+      "provenance": {
+        "status": "demo",
+        "sourceIds": [
+          "demo-contract"
+        ],
+        "asOf": null,
+        "note": "Exemple synthétique de contrat, sans offre réelle."
+      }
+    }
+  ],
+  "page": {
+    "limit": 20,
+    "offset": 0,
+    "total": 1
+  },
+  "sources": [
+    {
+      "id": "demo-contract",
+      "publisher": "Ecotrip — fixture synthétique",
+      "url": null,
+      "license": null,
+      "accessedAt": null,
+      "version": "contract-v1",
+      "reuseNotes": "Tests et développement UI uniquement; aucune attribution scientifique.",
+      "dataStatus": "demo"
+    }
+  ],
+  "warnings": [
+    "Aucune certification, prix ou disponibilité annoncés."
+  ]
+}

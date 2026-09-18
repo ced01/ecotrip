@@ -1,0 +1,2307 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Ecotrip internal API",
+    "version": "1.0.0",
+    "description": "Contrat MVP. Seul /health fonctionne en TASK-0001; endpoints métier planifiés, non simulés par le serveur. Les exemples sont synthétiques et hors ligne. Même origine, pas de compte ni réservation."
+  },
+  "servers": [
+    {
+      "url": "/"
+    }
+  ],
+  "paths": {
+    "/health": {
+      "get": {
+        "operationId": "health",
+        "summary": "Vivacité du processus uniquement, sans test DB",
+        "x-implementation-status": "implemented",
+        "responses": {
+          "200": {
+            "description": "Réponse conforme au contrat",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Health"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/capabilities": {
+      "get": {
+        "operationId": "capabilities",
+        "summary": "capabilities",
+        "x-implementation-status": "planned",
+        "responses": {
+          "200": {
+            "description": "Réponse conforme au contrat",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Capabilities"
+                },
+                "example": {
+                  "mode": "demo",
+                  "countries": [
+                    "FR"
+                  ],
+                  "modes": [
+                    "train",
+                    "coach"
+                  ],
+                  "coveredPairs": [
+                    {
+                      "originId": "demo-paris",
+                      "destinationId": "demo-lyon"
+                    }
+                  ],
+                  "limits": {
+                    "maxTravelers": 9,
+                    "maxResultsPerDirection": 20,
+                    "maxBodyBytes": 16384,
+                    "bookingAvailable": false
+                  },
+                  "warnings": [
+                    "Fixture hors ligne, API métier non implémentée en TASK-0001."
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "JSON malformé",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Ressource inconnue",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Méthode non autorisée",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Corps trop grand",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Type de contenu non pris en charge",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Critères invalides",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Limite atteinte; Retry-After en secondes",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "description": "Délai en secondes"
+              }
+            }
+          },
+          "503": {
+            "description": "Fournisseur indisponible",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Erreur interne sans détail sensible",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/places": {
+      "get": {
+        "operationId": "places",
+        "summary": "places",
+        "x-implementation-status": "planned",
+        "responses": {
+          "200": {
+            "description": "Réponse conforme au contrat",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlacesResponse"
+                },
+                "example": {
+                  "items": [
+                    {
+                      "id": "demo-paris",
+                      "name": "Paris (scénario)",
+                      "countryCode": "FR",
+                      "latitude": null,
+                      "longitude": null,
+                      "timezone": "Europe/Paris",
+                      "provenance": {
+                        "status": "demo",
+                        "sourceIds": [
+                          "demo-contract"
+                        ],
+                        "asOf": null,
+                        "note": "Exemple synthétique de contrat, sans offre réelle."
+                      }
+                    },
+                    {
+                      "id": "demo-lyon",
+                      "name": "Lyon (scénario)",
+                      "countryCode": "FR",
+                      "latitude": null,
+                      "longitude": null,
+                      "timezone": "Europe/Paris",
+                      "provenance": {
+                        "status": "demo",
+                        "sourceIds": [
+                          "demo-contract"
+                        ],
+                        "asOf": null,
+                        "note": "Exemple synthétique de contrat, sans offre réelle."
+                      }
+                    }
+                  ],
+                  "page": {
+                    "limit": 20,
+                    "offset": 0,
+                    "total": 2
+                  },
+                  "sources": [
+                    {
+                      "id": "demo-contract",
+                      "publisher": "Ecotrip — fixture synthétique",
+                      "url": null,
+                      "license": null,
+                      "accessedAt": null,
+                      "version": "contract-v1",
+                      "reuseNotes": "Tests et développement UI uniquement; aucune attribution scientifique.",
+                      "dataStatus": "demo"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "JSON malformé",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Ressource inconnue",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Méthode non autorisée",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Corps trop grand",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Type de contenu non pris en charge",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Critères invalides",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Limite atteinte; Retry-After en secondes",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "description": "Délai en secondes"
+              }
+            }
+          },
+          "503": {
+            "description": "Fournisseur indisponible",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Erreur interne sans détail sensible",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 100,
+              "default": ""
+            },
+            "description": "q"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50,
+              "default": 20
+            },
+            "description": "limit"
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 10000,
+              "default": 0
+            },
+            "description": "offset"
+          }
+        ]
+      }
+    },
+    "/api/v1/journeys/search": {
+      "post": {
+        "operationId": "searchJourneys",
+        "summary": "searchJourneys",
+        "x-implementation-status": "planned",
+        "responses": {
+          "200": {
+            "description": "Réponse conforme au contrat",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JourneysResponse"
+                },
+                "example": {
+                  "dataMode": "demo",
+                  "request": {
+                    "originId": "demo-paris",
+                    "destinationId": "demo-lyon",
+                    "departureDate": "2027-01-15",
+                    "returnDate": null,
+                    "travelers": 1,
+                    "modes": [
+                      "train",
+                      "coach"
+                    ]
+                  },
+                  "outbound": {
+                    "status": "complete",
+                    "itineraries": [
+                      {
+                        "id": "demo-train",
+                        "direction": "outbound",
+                        "requestedDate": "2027-01-15",
+                        "dataStatus": "demo",
+                        "legs": [
+                          {
+                            "id": "demo-leg-train",
+                            "mode": "train",
+                            "subtype": null,
+                            "originId": "demo-paris",
+                            "destinationId": "demo-lyon",
+                            "durationMinutes": 150,
+                            "waitingMinutes": 0,
+                            "distance": {
+                              "km": null,
+                              "method": "unknown",
+                              "provenance": {
+                                "status": "demo",
+                                "sourceIds": [
+                                  "demo-contract"
+                                ],
+                                "asOf": null,
+                                "note": "Exemple synthétique de contrat, sans offre réelle."
+                              }
+                            },
+                            "schedule": {
+                              "departureAt": null,
+                              "arrivalAt": null,
+                              "provenance": {
+                                "status": "demo",
+                                "sourceIds": [
+                                  "demo-contract"
+                                ],
+                                "asOf": null,
+                                "note": "Exemple synthétique de contrat, sans offre réelle."
+                              }
+                            },
+                            "provenance": {
+                              "status": "demo",
+                              "sourceIds": [
+                                "demo-contract"
+                              ],
+                              "asOf": null,
+                              "note": "Exemple synthétique de contrat, sans offre réelle."
+                            }
+                          }
+                        ],
+                        "durationMinutes": 150,
+                        "transfers": 0,
+                        "emissions": {
+                          "status": "unavailable",
+                          "kgCO2ePerTraveler": null,
+                          "kgCO2eGroup": null,
+                          "coveredDistanceKm": 0,
+                          "totalDistanceKm": null,
+                          "comparable": false,
+                          "comparisonKey": null,
+                          "methodologyVersion": "foundation-v1",
+                          "assumptions": [],
+                          "legs": [
+                            {
+                              "legId": "demo-leg-train",
+                              "status": "unavailable",
+                              "kgCO2ePerTraveler": null,
+                              "kgCO2eGroup": null,
+                              "factorId": null,
+                              "reason": "Aucun facteur réel vérifié ni distance disponible."
+                            }
+                          ],
+                          "factors": []
+                        },
+                        "provenance": {
+                          "status": "demo",
+                          "sourceIds": [
+                            "demo-contract"
+                          ],
+                          "asOf": null,
+                          "note": "Exemple synthétique de contrat, sans offre réelle."
+                        },
+                        "warnings": [
+                          "Durée synthétique; aucun horaire disponible."
+                        ]
+                      },
+                      {
+                        "id": "demo-coach",
+                        "direction": "outbound",
+                        "requestedDate": "2027-01-15",
+                        "dataStatus": "demo",
+                        "legs": [
+                          {
+                            "id": "demo-leg-coach",
+                            "mode": "coach",
+                            "subtype": null,
+                            "originId": "demo-paris",
+                            "destinationId": "demo-lyon",
+                            "durationMinutes": 390,
+                            "waitingMinutes": 0,
+                            "distance": {
+                              "km": null,
+                              "method": "unknown",
+                              "provenance": {
+                                "status": "demo",
+                                "sourceIds": [
+                                  "demo-contract"
+                                ],
+                                "asOf": null,
+                                "note": "Exemple synthétique de contrat, sans offre réelle."
+                              }
+                            },
+                            "schedule": {
+                              "departureAt": null,
+                              "arrivalAt": null,
+                              "provenance": {
+                                "status": "demo",
+                                "sourceIds": [
+                                  "demo-contract"
+                                ],
+                                "asOf": null,
+                                "note": "Exemple synthétique de contrat, sans offre réelle."
+                              }
+                            },
+                            "provenance": {
+                              "status": "demo",
+                              "sourceIds": [
+                                "demo-contract"
+                              ],
+                              "asOf": null,
+                              "note": "Exemple synthétique de contrat, sans offre réelle."
+                            }
+                          }
+                        ],
+                        "durationMinutes": 390,
+                        "transfers": 0,
+                        "emissions": {
+                          "status": "unavailable",
+                          "kgCO2ePerTraveler": null,
+                          "kgCO2eGroup": null,
+                          "coveredDistanceKm": 0,
+                          "totalDistanceKm": null,
+                          "comparable": false,
+                          "comparisonKey": null,
+                          "methodologyVersion": "foundation-v1",
+                          "assumptions": [],
+                          "legs": [
+                            {
+                              "legId": "demo-leg-coach",
+                              "status": "unavailable",
+                              "kgCO2ePerTraveler": null,
+                              "kgCO2eGroup": null,
+                              "factorId": null,
+                              "reason": "Aucun facteur réel vérifié ni distance disponible."
+                            }
+                          ],
+                          "factors": []
+                        },
+                        "provenance": {
+                          "status": "demo",
+                          "sourceIds": [
+                            "demo-contract"
+                          ],
+                          "asOf": null,
+                          "note": "Exemple synthétique de contrat, sans offre réelle."
+                        },
+                        "warnings": [
+                          "Durée synthétique; aucun horaire disponible."
+                        ]
+                      }
+                    ],
+                    "warnings": []
+                  },
+                  "inbound": {
+                    "status": "not_requested",
+                    "itineraries": [],
+                    "warnings": []
+                  },
+                  "sources": [
+                    {
+                      "id": "demo-contract",
+                      "publisher": "Ecotrip — fixture synthétique",
+                      "url": null,
+                      "license": null,
+                      "accessedAt": null,
+                      "version": "contract-v1",
+                      "reuseNotes": "Tests et développement UI uniquement; aucune attribution scientifique.",
+                      "dataStatus": "demo"
+                    }
+                  ],
+                  "warnings": [
+                    "Exemple de contrat uniquement."
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "JSON malformé",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Ressource inconnue",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Méthode non autorisée",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Corps trop grand",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Type de contenu non pris en charge",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Critères invalides",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Limite atteinte; Retry-After en secondes",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "description": "Délai en secondes"
+              }
+            }
+          },
+          "503": {
+            "description": "Fournisseur indisponible",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Erreur interne sans détail sensible",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TripRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/accommodations": {
+      "get": {
+        "operationId": "accommodations",
+        "summary": "accommodations",
+        "x-implementation-status": "planned",
+        "responses": {
+          "200": {
+            "description": "Réponse conforme au contrat",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccommodationsResponse"
+                },
+                "example": {
+                  "status": "complete",
+                  "items": [
+                    {
+                      "id": "demo-stay",
+                      "name": "Hébergement fictif de contrat",
+                      "destinationId": "demo-lyon",
+                      "dataStatus": "demo",
+                      "features": {
+                        "bicycleParking": true,
+                        "publicTransportNearby": null
+                      },
+                      "publicTransportDistanceMeters": null,
+                      "price": null,
+                      "evidence": [],
+                      "provenance": {
+                        "status": "demo",
+                        "sourceIds": [
+                          "demo-contract"
+                        ],
+                        "asOf": null,
+                        "note": "Exemple synthétique de contrat, sans offre réelle."
+                      }
+                    }
+                  ],
+                  "page": {
+                    "limit": 20,
+                    "offset": 0,
+                    "total": 1
+                  },
+                  "sources": [
+                    {
+                      "id": "demo-contract",
+                      "publisher": "Ecotrip — fixture synthétique",
+                      "url": null,
+                      "license": null,
+                      "accessedAt": null,
+                      "version": "contract-v1",
+                      "reuseNotes": "Tests et développement UI uniquement; aucune attribution scientifique.",
+                      "dataStatus": "demo"
+                    }
+                  ],
+                  "warnings": [
+                    "Aucune certification, prix ou disponibilité annoncés."
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "JSON malformé",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Ressource inconnue",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Méthode non autorisée",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Corps trop grand",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Type de contenu non pris en charge",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Critères invalides",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Limite atteinte; Retry-After en secondes",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "description": "Délai en secondes"
+              }
+            }
+          },
+          "503": {
+            "description": "Fournisseur indisponible",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Erreur interne sans détail sensible",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "destinationId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$"
+            },
+            "description": "destinationId"
+          },
+          {
+            "name": "bicycleParking",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ]
+            },
+            "description": "Omis: aucun filtre; true/false excluent tous deux les valeurs inconnues."
+          },
+          {
+            "name": "publicTransportNearby",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ]
+            },
+            "description": "publicTransportNearby"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50,
+              "default": 20
+            },
+            "description": "limit"
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 10000,
+              "default": 0
+            },
+            "description": "offset"
+          }
+        ]
+      }
+    },
+    "/api/v1/methodology": {
+      "get": {
+        "operationId": "methodology",
+        "summary": "methodology",
+        "x-implementation-status": "planned",
+        "responses": {
+          "200": {
+            "description": "Réponse conforme au contrat",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Methodology"
+                },
+                "example": {
+                  "version": "foundation-v1",
+                  "status": "unavailable",
+                  "indicator": "kgCO2e",
+                  "scopes": [],
+                  "rules": [
+                    "Données inconnues représentées par null, jamais zéro.",
+                    "Pas de comparaison de périmètres incompatibles."
+                  ],
+                  "limits": [
+                    "Aucun facteur réel vérifié au stade socle.",
+                    "Pas de bilan hôtelier ni de score écologique global."
+                  ],
+                  "sources": []
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "JSON malformé",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Ressource inconnue",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Méthode non autorisée",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Corps trop grand",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Type de contenu non pris en charge",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Critères invalides",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Limite atteinte; Retry-After en secondes",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "description": "Délai en secondes"
+              }
+            }
+          },
+          "503": {
+            "description": "Fournisseur indisponible",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Erreur interne sans détail sensible",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Mode": {
+        "type": "string",
+        "enum": [
+          "train",
+          "coach",
+          "walk",
+          "public_transport",
+          "bicycle",
+          "carpool",
+          "flight"
+        ]
+      },
+      "Problem": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "type": "string",
+            "format": "uri-reference"
+          },
+          "title": {
+            "type": "string"
+          },
+          "status": {
+            "type": "integer",
+            "minimum": 400,
+            "maximum": 599
+          },
+          "detail": {
+            "type": "string"
+          },
+          "instance": {
+            "type": "string",
+            "format": "uri-reference"
+          },
+          "code": {
+            "type": "string",
+            "enum": [
+              "invalid_json",
+              "validation_failed",
+              "not_found",
+              "method_not_allowed",
+              "payload_too_large",
+              "unsupported_media_type",
+              "rate_limited",
+              "provider_unavailable",
+              "internal_error"
+            ]
+          },
+          "violations": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "path": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "path",
+                "message"
+              ]
+            }
+          }
+        },
+        "required": [
+          "type",
+          "title",
+          "status",
+          "detail",
+          "instance",
+          "code"
+        ]
+      },
+      "Source": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$"
+          },
+          "publisher": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string",
+            "format": "uri",
+            "nullable": true
+          },
+          "license": {
+            "type": "string",
+            "nullable": true
+          },
+          "accessedAt": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "version": {
+            "type": "string",
+            "nullable": true
+          },
+          "reuseNotes": {
+            "type": "string"
+          },
+          "dataStatus": {
+            "type": "string",
+            "enum": [
+              "demo",
+              "verified",
+              "unverified"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "publisher",
+          "url",
+          "license",
+          "accessedAt",
+          "version",
+          "reuseNotes",
+          "dataStatus"
+        ]
+      },
+      "Provenance": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "demo",
+              "verified",
+              "unverified",
+              "unknown"
+            ]
+          },
+          "sourceIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$"
+            }
+          },
+          "asOf": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "note": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "sourceIds",
+          "asOf",
+          "note"
+        ]
+      },
+      "Place": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$"
+          },
+          "name": {
+            "type": "string"
+          },
+          "countryCode": {
+            "type": "string",
+            "pattern": "^[A-Z]{2}$"
+          },
+          "latitude": {
+            "type": "number",
+            "minimum": -90,
+            "maximum": 90,
+            "nullable": true
+          },
+          "longitude": {
+            "type": "number",
+            "minimum": -180,
+            "maximum": 180,
+            "nullable": true
+          },
+          "timezone": {
+            "type": "string",
+            "example": "Europe/Paris"
+          },
+          "provenance": {
+            "$ref": "#/components/schemas/Provenance"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "countryCode",
+          "latitude",
+          "longitude",
+          "timezone",
+          "provenance"
+        ]
+      },
+      "Page": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50
+          },
+          "offset": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10000
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "limit",
+          "offset",
+          "total"
+        ]
+      },
+      "PlacesResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Place"
+            }
+          },
+          "page": {
+            "$ref": "#/components/schemas/Page"
+          },
+          "sources": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Source"
+            }
+          }
+        },
+        "required": [
+          "items",
+          "page",
+          "sources"
+        ]
+      },
+      "Capabilities": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": [
+              "demo",
+              "real"
+            ]
+          },
+          "countries": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "modes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Mode"
+            }
+          },
+          "coveredPairs": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "originId": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$"
+                },
+                "destinationId": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$"
+                }
+              },
+              "required": [
+                "originId",
+                "destinationId"
+              ]
+            }
+          },
+          "limits": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "maxTravelers": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9
+              },
+              "maxResultsPerDirection": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 20
+              },
+              "maxBodyBytes": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 16384
+              },
+              "bookingAvailable": {
+                "type": "boolean",
+                "enum": [
+                  false
+                ]
+              }
+            },
+            "required": [
+              "maxTravelers",
+              "maxResultsPerDirection",
+              "maxBodyBytes",
+              "bookingAvailable"
+            ]
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "mode",
+          "countries",
+          "modes",
+          "coveredPairs",
+          "limits",
+          "warnings"
+        ]
+      },
+      "TripRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "originId": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$"
+          },
+          "destinationId": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$"
+          },
+          "departureDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "returnDate": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "travelers": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9
+          },
+          "modes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Mode"
+            },
+            "minItems": 1,
+            "maxItems": 7,
+            "uniqueItems": true
+          }
+        },
+        "required": [
+          "originId",
+          "destinationId",
+          "departureDate",
+          "travelers",
+          "modes"
+        ],
+        "description": "Dates locales Europe/Paris pour le catalogue MVP. Départ >= aujourd’hui selon horloge serveur injectable, retour >= départ; origine distincte destination. JSON <= 16384 octets. Identifiants inconnus: 422. Une paire connue non couverte: 200/out_of_coverage."
+      },
+      "Distance": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "km": {
+            "type": "number",
+            "minimum": 0,
+            "nullable": true
+          },
+          "method": {
+            "type": "string",
+            "enum": [
+              "scenario",
+              "routed",
+              "great_circle",
+              "unknown"
+            ]
+          },
+          "provenance": {
+            "$ref": "#/components/schemas/Provenance"
+          }
+        },
+        "required": [
+          "km",
+          "method",
+          "provenance"
+        ]
+      },
+      "Leg": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$"
+          },
+          "mode": {
+            "$ref": "#/components/schemas/Mode"
+          },
+          "subtype": {
+            "type": "string",
+            "nullable": true
+          },
+          "originId": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$"
+          },
+          "destinationId": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$"
+          },
+          "durationMinutes": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "waitingMinutes": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "distance": {
+            "$ref": "#/components/schemas/Distance"
+          },
+          "schedule": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "departureAt": {
+                "type": "string",
+                "format": "date-time",
+                "nullable": true
+              },
+              "arrivalAt": {
+                "type": "string",
+                "format": "date-time",
+                "nullable": true
+              },
+              "provenance": {
+                "$ref": "#/components/schemas/Provenance"
+              }
+            },
+            "required": [
+              "departureAt",
+              "arrivalAt",
+              "provenance"
+            ]
+          },
+          "provenance": {
+            "$ref": "#/components/schemas/Provenance"
+          }
+        },
+        "required": [
+          "id",
+          "mode",
+          "subtype",
+          "originId",
+          "destinationId",
+          "durationMinutes",
+          "waitingMinutes",
+          "distance",
+          "schedule",
+          "provenance"
+        ],
+        "description": "Les durées de scénario ne sont pas des horaires. waitingMinutes est l’attente avant cette étape; pas de double comptage. Aucun horaire déduit de la seule date demandée."
+      },
+      "Factor": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$"
+          },
+          "value": {
+            "type": "number",
+            "minimum": 0
+          },
+          "unit": {
+            "type": "string",
+            "enum": [
+              "kgCO2e/passenger-km",
+              "kgCO2e/vehicle-km"
+            ]
+          },
+          "mode": {
+            "$ref": "#/components/schemas/Mode"
+          },
+          "subtype": {
+            "type": "string",
+            "nullable": true
+          },
+          "geography": {
+            "type": "string"
+          },
+          "validFrom": {
+            "type": "string",
+            "format": "date"
+          },
+          "validUntil": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "operation",
+              "life_cycle"
+            ]
+          },
+          "occupancy": {
+            "type": "number",
+            "exclusiveMinimum": true,
+            "minimum": 0,
+            "nullable": true
+          },
+          "version": {
+            "type": "string"
+          },
+          "sourceId": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "verified",
+              "synthetic_test"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "value",
+          "unit",
+          "mode",
+          "subtype",
+          "geography",
+          "validFrom",
+          "validUntil",
+          "scope",
+          "occupancy",
+          "version",
+          "sourceId",
+          "status"
+        ]
+      },
+      "LegEstimate": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "legId": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "complete",
+              "unavailable",
+              "demo"
+            ]
+          },
+          "kgCO2ePerTraveler": {
+            "type": "number",
+            "minimum": 0,
+            "nullable": true
+          },
+          "kgCO2eGroup": {
+            "type": "number",
+            "minimum": 0,
+            "nullable": true
+          },
+          "factorId": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$",
+            "nullable": true
+          },
+          "reason": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "legId",
+          "status",
+          "kgCO2ePerTraveler",
+          "kgCO2eGroup",
+          "factorId",
+          "reason"
+        ]
+      },
+      "EmissionEstimate": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "complete",
+              "partial",
+              "unavailable",
+              "demo"
+            ]
+          },
+          "kgCO2ePerTraveler": {
+            "type": "number",
+            "minimum": 0,
+            "nullable": true
+          },
+          "kgCO2eGroup": {
+            "type": "number",
+            "minimum": 0,
+            "nullable": true
+          },
+          "coveredDistanceKm": {
+            "type": "number",
+            "minimum": 0
+          },
+          "totalDistanceKm": {
+            "type": "number",
+            "minimum": 0,
+            "nullable": true
+          },
+          "comparable": {
+            "type": "boolean"
+          },
+          "comparisonKey": {
+            "type": "string",
+            "nullable": true
+          },
+          "methodologyVersion": {
+            "type": "string"
+          },
+          "assumptions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "legs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LegEstimate"
+            }
+          },
+          "factors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Factor"
+            }
+          }
+        },
+        "required": [
+          "status",
+          "kgCO2ePerTraveler",
+          "kgCO2eGroup",
+          "coveredDistanceKm",
+          "totalDistanceKm",
+          "comparable",
+          "comparisonKey",
+          "methodologyVersion",
+          "assumptions",
+          "legs",
+          "factors"
+        ],
+        "description": "Inconnu = null, jamais zéro. Partiel/indisponible non classable carbone. comparisonKey lie unité, périmètre et méthode compatibles; demo reste explicitement synthétique. Les sommes partielles décrivent uniquement les étapes couvertes."
+      },
+      "Itinerary": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$"
+          },
+          "direction": {
+            "type": "string",
+            "enum": [
+              "outbound",
+              "inbound"
+            ]
+          },
+          "requestedDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "dataStatus": {
+            "type": "string",
+            "enum": [
+              "demo",
+              "real"
+            ]
+          },
+          "legs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Leg"
+            },
+            "minItems": 1
+          },
+          "durationMinutes": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "transfers": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "emissions": {
+            "$ref": "#/components/schemas/EmissionEstimate"
+          },
+          "provenance": {
+            "$ref": "#/components/schemas/Provenance"
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "direction",
+          "requestedDate",
+          "dataStatus",
+          "legs",
+          "durationMinutes",
+          "transfers",
+          "emissions",
+          "provenance",
+          "warnings"
+        ],
+        "description": "durationMinutes = somme des durées et attentes. transfers compte les changements de véhicule motorisé; marche de liaison non comptée comme véhicule. Les retours sont recherchés séparément."
+      },
+      "DirectionResult": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "complete",
+              "partial",
+              "empty",
+              "out_of_coverage",
+              "unavailable",
+              "not_requested"
+            ]
+          },
+          "itineraries": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Itinerary"
+            },
+            "maxItems": 20
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "status",
+          "itineraries",
+          "warnings"
+        ]
+      },
+      "JourneysResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "dataMode": {
+            "type": "string",
+            "enum": [
+              "demo",
+              "real"
+            ]
+          },
+          "request": {
+            "$ref": "#/components/schemas/TripRequest"
+          },
+          "outbound": {
+            "$ref": "#/components/schemas/DirectionResult"
+          },
+          "inbound": {
+            "$ref": "#/components/schemas/DirectionResult"
+          },
+          "sources": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Source"
+            }
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "dataMode",
+          "request",
+          "outbound",
+          "inbound",
+          "sources",
+          "warnings"
+        ],
+        "description": "200 empty: couvert mais aucun résultat selon filtres. out_of_coverage: paire hors catalogue. unavailable: échec partiel lorsque autre direction réussit; panne totale = 503. inbound not_requested si pas de retour. Aucun fallback réel vers demo."
+      },
+      "Evidence": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$"
+          },
+          "claim": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "declaration",
+              "certification"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "declared",
+              "unverified",
+              "verified",
+              "expired",
+              "demo"
+            ]
+          },
+          "organization": {
+            "type": "string",
+            "nullable": true
+          },
+          "referenceUrl": {
+            "type": "string",
+            "format": "uri",
+            "nullable": true
+          },
+          "validFrom": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "validUntil": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "checkedAt": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "sourceId": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$"
+          }
+        },
+        "required": [
+          "id",
+          "claim",
+          "kind",
+          "status",
+          "organization",
+          "referenceUrl",
+          "validFrom",
+          "validUntil",
+          "checkedAt",
+          "sourceId"
+        ],
+        "description": "verified nécessite organisme, référence vérifiable et date de vérification; validité contrôlée à la lecture. Une déclaration ne devient jamais une certification."
+      },
+      "Price": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "amount": {
+            "type": "number",
+            "minimum": 0
+          },
+          "currency": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}$"
+          },
+          "basis": {
+            "type": "string",
+            "enum": [
+              "night_per_room",
+              "night_per_person"
+            ]
+          },
+          "asOf": {
+            "type": "string",
+            "format": "date"
+          },
+          "sourceId": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$"
+          },
+          "dataStatus": {
+            "type": "string",
+            "enum": [
+              "demo",
+              "verified",
+              "unverified"
+            ]
+          }
+        },
+        "required": [
+          "amount",
+          "currency",
+          "basis",
+          "asOf",
+          "sourceId",
+          "dataStatus"
+        ]
+      },
+      "Accommodation": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$"
+          },
+          "name": {
+            "type": "string"
+          },
+          "destinationId": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$"
+          },
+          "dataStatus": {
+            "type": "string",
+            "enum": [
+              "demo",
+              "real"
+            ]
+          },
+          "features": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "bicycleParking": {
+                "type": "boolean",
+                "nullable": true
+              },
+              "publicTransportNearby": {
+                "type": "boolean",
+                "nullable": true
+              }
+            },
+            "required": [
+              "bicycleParking",
+              "publicTransportNearby"
+            ]
+          },
+          "publicTransportDistanceMeters": {
+            "type": "integer",
+            "minimum": 0,
+            "nullable": true
+          },
+          "price": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Price"
+              }
+            ],
+            "nullable": true
+          },
+          "evidence": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Evidence"
+            }
+          },
+          "provenance": {
+            "$ref": "#/components/schemas/Provenance"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "destinationId",
+          "dataStatus",
+          "features",
+          "publicTransportDistanceMeters",
+          "price",
+          "evidence",
+          "provenance"
+        ],
+        "description": "Pas de disponibilité, réservation ni émission hôtelière. Inconnu est null, différent de false. Distance transport non renseignée reste null."
+      },
+      "AccommodationsResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "complete",
+              "empty",
+              "out_of_coverage"
+            ]
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Accommodation"
+            }
+          },
+          "page": {
+            "$ref": "#/components/schemas/Page"
+          },
+          "sources": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Source"
+            }
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "status",
+          "items",
+          "page",
+          "sources",
+          "warnings"
+        ]
+      },
+      "Methodology": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "version": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "unavailable",
+              "demo",
+              "verified"
+            ]
+          },
+          "indicator": {
+            "type": "string",
+            "enum": [
+              "kgCO2e"
+            ]
+          },
+          "scopes": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "operation",
+                "life_cycle"
+              ]
+            }
+          },
+          "rules": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "limits": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "sources": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Source"
+            }
+          }
+        },
+        "required": [
+          "version",
+          "status",
+          "indicator",
+          "scopes",
+          "rules",
+          "limits",
+          "sources"
+        ]
+      },
+      "TripPlan": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "schemaVersion": {
+            "type": "integer",
+            "enum": [
+              1
+            ]
+          },
+          "savedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "request": {
+            "$ref": "#/components/schemas/TripRequest"
+          },
+          "outbound": {
+            "$ref": "#/components/schemas/Itinerary"
+          },
+          "inbound": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Itinerary"
+              }
+            ],
+            "nullable": true
+          },
+          "accommodation": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Accommodation"
+              }
+            ],
+            "nullable": true
+          },
+          "sources": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Source"
+            }
+          }
+        },
+        "required": [
+          "schemaVersion",
+          "savedAt",
+          "request",
+          "outbound",
+          "inbound",
+          "accommodation",
+          "sources"
+        ],
+        "description": "Format de brouillon local volontaire, jamais envoyé au serveur dans ce MVP; restaurer après validation, afficher ancienneté, permettre effacement."
+      },
+      "Health": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ok"
+            ]
+          },
+          "service": {
+            "type": "string",
+            "enum": [
+              "ecotrip"
+            ]
+          }
+        },
+        "required": [
+          "status",
+          "service"
+        ]
+      }
+    }
+  }
+}

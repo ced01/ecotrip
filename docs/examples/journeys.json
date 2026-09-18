@@ -1,0 +1,208 @@
+{
+  "dataMode": "demo",
+  "request": {
+    "originId": "demo-paris",
+    "destinationId": "demo-lyon",
+    "departureDate": "2027-01-15",
+    "returnDate": null,
+    "travelers": 1,
+    "modes": [
+      "train",
+      "coach"
+    ]
+  },
+  "outbound": {
+    "status": "complete",
+    "itineraries": [
+      {
+        "id": "demo-train",
+        "direction": "outbound",
+        "requestedDate": "2027-01-15",
+        "dataStatus": "demo",
+        "legs": [
+          {
+            "id": "demo-leg-train",
+            "mode": "train",
+            "subtype": null,
+            "originId": "demo-paris",
+            "destinationId": "demo-lyon",
+            "durationMinutes": 150,
+            "waitingMinutes": 0,
+            "distance": {
+              "km": null,
+              "method": "unknown",
+              "provenance": {
+                "status": "demo",
+                "sourceIds": [
+                  "demo-contract"
+                ],
+                "asOf": null,
+                "note": "Exemple synthétique de contrat, sans offre réelle."
+              }
+            },
+            "schedule": {
+              "departureAt": null,
+              "arrivalAt": null,
+              "provenance": {
+                "status": "demo",
+                "sourceIds": [
+                  "demo-contract"
+                ],
+                "asOf": null,
+                "note": "Exemple synthétique de contrat, sans offre réelle."
+              }
+            },
+            "provenance": {
+              "status": "demo",
+              "sourceIds": [
+                "demo-contract"
+              ],
+              "asOf": null,
+              "note": "Exemple synthétique de contrat, sans offre réelle."
+            }
+          }
+        ],
+        "durationMinutes": 150,
+        "transfers": 0,
+        "emissions": {
+          "status": "unavailable",
+          "kgCO2ePerTraveler": null,
+          "kgCO2eGroup": null,
+          "coveredDistanceKm": 0,
+          "totalDistanceKm": null,
+          "comparable": false,
+          "comparisonKey": null,
+          "methodologyVersion": "foundation-v1",
+          "assumptions": [],
+          "legs": [
+            {
+              "legId": "demo-leg-train",
+              "status": "unavailable",
+              "kgCO2ePerTraveler": null,
+              "kgCO2eGroup": null,
+              "factorId": null,
+              "reason": "Aucun facteur réel vérifié ni distance disponible."
+            }
+          ],
+          "factors": []
+        },
+        "provenance": {
+          "status": "demo",
+          "sourceIds": [
+            "demo-contract"
+          ],
+          "asOf": null,
+          "note": "Exemple synthétique de contrat, sans offre réelle."
+        },
+        "warnings": [
+          "Durée synthétique; aucun horaire disponible."
+        ]
+      },
+      {
+        "id": "demo-coach",
+        "direction": "outbound",
+        "requestedDate": "2027-01-15",
+        "dataStatus": "demo",
+        "legs": [
+          {
+            "id": "demo-leg-coach",
+            "mode": "coach",
+            "subtype": null,
+            "originId": "demo-paris",
+            "destinationId": "demo-lyon",
+            "durationMinutes": 390,
+            "waitingMinutes": 0,
+            "distance": {
+              "km": null,
+              "method": "unknown",
+              "provenance": {
+                "status": "demo",
+                "sourceIds": [
+                  "demo-contract"
+                ],
+                "asOf": null,
+                "note": "Exemple synthétique de contrat, sans offre réelle."
+              }
+            },
+            "schedule": {
+              "departureAt": null,
+              "arrivalAt": null,
+              "provenance": {
+                "status": "demo",
+                "sourceIds": [
+                  "demo-contract"
+                ],
+                "asOf": null,
+                "note": "Exemple synthétique de contrat, sans offre réelle."
+              }
+            },
+            "provenance": {
+              "status": "demo",
+              "sourceIds": [
+                "demo-contract"
+              ],
+              "asOf": null,
+              "note": "Exemple synthétique de contrat, sans offre réelle."
+            }
+          }
+        ],
+        "durationMinutes": 390,
+        "transfers": 0,
+        "emissions": {
+          "status": "unavailable",
+          "kgCO2ePerTraveler": null,
+          "kgCO2eGroup": null,
+          "coveredDistanceKm": 0,
+          "totalDistanceKm": null,
+          "comparable": false,
+          "comparisonKey": null,
+          "methodologyVersion": "foundation-v1",
+          "assumptions": [],
+          "legs": [
+            {
+              "legId": "demo-leg-coach",
+              "status": "unavailable",
+              "kgCO2ePerTraveler": null,
+              "kgCO2eGroup": null,
+              "factorId": null,
+              "reason": "Aucun facteur réel vérifié ni distance disponible."
+            }
+          ],
+          "factors": []
+        },
+        "provenance": {
+          "status": "demo",
+          "sourceIds": [
+            "demo-contract"
+          ],
+          "asOf": null,
+          "note": "Exemple synthétique de contrat, sans offre réelle."
+        },
+        "warnings": [
+          "Durée synthétique; aucun horaire disponible."
+        ]
+      }
+    ],
+    "warnings": []
+  },
+  "inbound": {
+    "status": "not_requested",
+    "itineraries": [],
+    "warnings": []
+  },
+  "sources": [
+    {
+      "id": "demo-contract",
+      "publisher": "Ecotrip — fixture synthétique",
+      "url": null,
+      "license": null,
+      "accessedAt": null,
+      "version": "contract-v1",
+      "reuseNotes": "Tests et développement UI uniquement; aucune attribution scientifique.",
+      "dataStatus": "demo"
+    }
+  ],
+  "warnings": [
+    "Exemple de contrat uniquement."
+  ]
+}

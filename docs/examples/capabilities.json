@@ -1,0 +1,25 @@
+{
+  "mode": "demo",
+  "countries": [
+    "FR"
+  ],
+  "modes": [
+    "train",
+    "coach"
+  ],
+  "coveredPairs": [
+    {
+      "originId": "demo-paris",
+      "destinationId": "demo-lyon"
+    }
+  ],
+  "limits": {
+    "maxTravelers": 9,
+    "maxResultsPerDirection": 20,
+    "maxBodyBytes": 16384,
+    "bookingAvailable": false
+  },
+  "warnings": [
+    "Fixture hors ligne, API métier non implémentée en TASK-0001."
+  ]
+}

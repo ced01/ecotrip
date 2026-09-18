@@ -1,0 +1,13 @@
+framework:
+  secret: '%env(APP_SECRET)%'
+  router:
+    utf8: true
+  handle_all_throwables: true
+  http_method_override: false
+  php_errors:
+    log: true
+  asset_mapper:
+    paths: ['%kernel.project_dir%/assets/']
+when@test:
+  framework:
+    test: true

@@ -1,0 +1,53 @@
+{
+  "items": [
+    {
+      "id": "demo-paris",
+      "name": "Paris (scénario)",
+      "countryCode": "FR",
+      "latitude": null,
+      "longitude": null,
+      "timezone": "Europe/Paris",
+      "provenance": {
+        "status": "demo",
+        "sourceIds": [
+          "demo-contract"
+        ],
+        "asOf": null,
+        "note": "Exemple synthétique de contrat, sans offre réelle."
+      }
+    },
+    {
+      "id": "demo-lyon",
+      "name": "Lyon (scénario)",
+      "countryCode": "FR",
+      "latitude": null,
+      "longitude": null,
+      "timezone": "Europe/Paris",
+      "provenance": {
+        "status": "demo",
+        "sourceIds": [
+          "demo-contract"
+        ],
+        "asOf": null,
+        "note": "Exemple synthétique de contrat, sans offre réelle."
+      }
+    }
+  ],
+  "page": {
+    "limit": 20,
+    "offset": 0,
+    "total": 2
+  },
+  "sources": [
+    {
+      "id": "demo-contract",
+      "publisher": "Ecotrip — fixture synthétique",
+      "url": null,
+      "license": null,
+      "accessedAt": null,
+      "version": "contract-v1",
+      "reuseNotes": "Tests et développement UI uniquement; aucune attribution scientifique.",
+      "dataStatus": "demo"
+    }
+  ]
+}

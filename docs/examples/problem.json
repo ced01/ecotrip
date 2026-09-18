@@ -1,0 +1,14 @@
+{
+  "type": "about:blank",
+  "title": "Unprocessable Content",
+  "status": 422,
+  "detail": "Critères invalides.",
+  "instance": "/api/v1/journeys/search",
+  "code": "validation_failed",
+  "violations": [
+    {
+      "path": "travelers",
+      "message": "Valeur attendue entre 1 et 9."
+    }
+  ]
+}

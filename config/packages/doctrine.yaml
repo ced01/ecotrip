@@ -1,0 +1,13 @@
+doctrine:
+  dbal:
+    driver: pdo_pgsql
+    host: '%env(DB_HOST)%'
+    dbname: '%env(DB_NAME)%'
+    user: '%env(DB_USER)%'
+    password: '%env(DB_PASSWORD)%'
+    server_version: '17'
+    charset: UTF8
+  orm:
+    auto_generate_proxy_classes: true
+    enable_lazy_ghost_objects: true
+    mappings: {}

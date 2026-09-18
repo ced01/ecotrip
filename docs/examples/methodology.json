@@ -1,0 +1,15 @@
+{
+  "version": "foundation-v1",
+  "status": "unavailable",
+  "indicator": "kgCO2e",
+  "scopes": [],
+  "rules": [
+    "Données inconnues représentées par null, jamais zéro.",
+    "Pas de comparaison de périmètres incompatibles."
+  ],
+  "limits": [
+    "Aucun facteur réel vérifié au stade socle.",
+    "Pas de bilan hôtelier ni de score écologique global."
+  ],
+  "sources": []
+}
