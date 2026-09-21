@@ -5,3 +5,4 @@
 /.phpunit.cache/
 /public/assets/
 /assets/vendor/
+/config/reference.php
