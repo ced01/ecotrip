@@ -2,8 +2,8 @@
   "openapi": "3.0.3",
   "info": {
     "title": "Ecotrip internal API",
-    "version": "1.1.0",
-    "description": "Contrat MVP. /health et /api/v1/methodology sont implémentés; les autres endpoints métier restent planifiés. Les exemples sont synthétiques et hors ligne. Même origine, pas de compte ni réservation."
+    "version": "1.2.0",
+    "description": "Contrat MVP. /health, /api/v1/methodology et le catalogue d’hébergements synthétique hors ligne sont implémentés; les autres endpoints métier restent planifiés. Les exemples sont synthétiques et hors ligne. Même origine, pas de compte ni réservation."
   },
   "servers": [
     {
@@ -721,7 +721,7 @@
       "get": {
         "operationId": "accommodations",
         "summary": "accommodations",
-        "x-implementation-status": "planned",
+        "x-implementation-status": "implemented",
         "responses": {
           "200": {
             "description": "Réponse conforme au contrat",
@@ -739,7 +739,7 @@
                       "destinationId": "demo-lyon",
                       "dataStatus": "demo",
                       "features": {
-                        "bicycleParking": true,
+                        "bicycleParking": null,
                         "publicTransportNearby": null
                       },
                       "publicTransportDistanceMeters": null,
@@ -773,7 +773,7 @@
                     }
                   ],
                   "warnings": [
-                    "Aucune certification, prix ou disponibilité annoncés."
+                    "Aucune certification, prix ou disponibilité réels annoncés."
                   ]
                 }
               }
@@ -898,10 +898,11 @@
               "type": "string",
               "enum": [
                 "true",
-                "false"
+                "false",
+                "unknown"
               ]
             },
-            "description": "Omis: aucun filtre; true/false excluent tous deux les valeurs inconnues."
+            "description": "Omis: aucun filtre; true, false et unknown sélectionnent chacun uniquement cet état."
           },
           {
             "name": "publicTransportNearby",
@@ -911,10 +912,11 @@
               "type": "string",
               "enum": [
                 "true",
-                "false"
+                "false",
+                "unknown"
               ]
             },
-            "description": "publicTransportNearby"
+            "description": "Omis: aucun filtre; true, false et unknown sélectionnent chacun uniquement cet état."
           },
           {
             "name": "limit",
@@ -2020,7 +2022,7 @@
           "checkedAt",
           "sourceId"
         ],
-        "description": "verified nécessite organisme, référence vérifiable et date de vérification; validité contrôlée à la lecture. Une déclaration ne devient jamais une certification."
+        "description": "verified nécessite organisme, référence vérifiable et date de vérification; validité contrôlée à la lecture. Une déclaration ne devient jamais une certification. Une certification synthétique reste demo, jamais verified."
       },
       "Price": {
         "type": "object",

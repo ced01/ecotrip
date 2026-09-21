@@ -8,5 +8,7 @@ final readonly class AccommodationQuery
         public ?bool $publicTransportNearby = null,
         public int $limit = 20,
         public int $offset = 0,
+        public ?string $bicycleParkingState = null,
+        public ?string $publicTransportNearbyState = null,
     ) {}
 }
