@@ -2,8 +2,8 @@
   "openapi": "3.0.3",
   "info": {
     "title": "Ecotrip internal API",
-    "version": "1.1.0",
-    "description": "Contrat MVP. /health et /api/v1/methodology sont implémentés; les autres endpoints métier restent planifiés. Les exemples sont synthétiques et hors ligne. Même origine, pas de compte ni réservation."
+    "version": "1.2.0",
+    "description": "Contrat MVP. Le catalogue, les capabilities et la recherche de trajets utilisent des scénarios synthétiques hors ligne explicitement marqués demo. Aucun compte, réservation, horaire ou offre réelle."
   },
   "servers": [
     {
@@ -34,7 +34,7 @@
       "get": {
         "operationId": "capabilities",
         "summary": "capabilities",
-        "x-implementation-status": "planned",
+        "x-implementation-status": "implemented",
         "responses": {
           "200": {
             "description": "Réponse conforme au contrat",
@@ -56,6 +56,10 @@
                     {
                       "originId": "demo-paris",
                       "destinationId": "demo-lyon"
+                    },
+                    {
+                      "originId": "demo-lyon",
+                      "destinationId": "demo-paris"
                     }
                   ],
                   "limits": {
@@ -65,7 +69,7 @@
                     "bookingAvailable": false
                   },
                   "warnings": [
-                    "Fixture hors ligne, API métier non implémentée en TASK-0001."
+                    "Catalogue et trajets entièrement synthétiques; aucune bascule vers un fournisseur réel."
                   ]
                 }
               }
@@ -177,7 +181,7 @@
       "get": {
         "operationId": "places",
         "summary": "places",
-        "x-implementation-status": "planned",
+        "x-implementation-status": "implemented",
         "responses": {
           "200": {
             "description": "Réponse conforme au contrat",
@@ -198,10 +202,10 @@
                       "provenance": {
                         "status": "demo",
                         "sourceIds": [
-                          "demo-contract"
+                          "demo-journey-scenarios"
                         ],
                         "asOf": null,
-                        "note": "Exemple synthétique de contrat, sans offre réelle."
+                        "note": "Scénario synthétique hors ligne; aucun horaire ni offre réelle."
                       }
                     },
                     {
@@ -214,27 +218,43 @@
                       "provenance": {
                         "status": "demo",
                         "sourceIds": [
-                          "demo-contract"
+                          "demo-journey-scenarios"
                         ],
                         "asOf": null,
-                        "note": "Exemple synthétique de contrat, sans offre réelle."
+                        "note": "Scénario synthétique hors ligne; aucun horaire ni offre réelle."
+                      }
+                    },
+                    {
+                      "id": "demo-macon",
+                      "name": "Mâcon (correspondance scénario)",
+                      "countryCode": "FR",
+                      "latitude": null,
+                      "longitude": null,
+                      "timezone": "Europe/Paris",
+                      "provenance": {
+                        "status": "demo",
+                        "sourceIds": [
+                          "demo-journey-scenarios"
+                        ],
+                        "asOf": null,
+                        "note": "Scénario synthétique hors ligne; aucun horaire ni offre réelle."
                       }
                     }
                   ],
                   "page": {
                     "limit": 20,
                     "offset": 0,
-                    "total": 2
+                    "total": 3
                   },
                   "sources": [
                     {
-                      "id": "demo-contract",
-                      "publisher": "Ecotrip — fixture synthétique",
+                      "id": "demo-journey-scenarios",
+                      "publisher": "Ecotrip — scénarios synthétiques",
                       "url": null,
                       "license": null,
                       "accessedAt": null,
-                      "version": "contract-v1",
-                      "reuseNotes": "Tests et développement UI uniquement; aucune attribution scientifique.",
+                      "version": "journey-demo-v1",
+                      "reuseNotes": "Démonstration et tests uniquement; distances, durées et émissions fictives.",
                       "dataStatus": "demo"
                     }
                   ]
@@ -385,7 +405,7 @@
       "post": {
         "operationId": "searchJourneys",
         "summary": "searchJourneys",
-        "x-implementation-status": "planned",
+        "x-implementation-status": "implemented",
         "responses": {
           "200": {
             "description": "Réponse conforme au contrat",
@@ -411,29 +431,29 @@
                     "status": "complete",
                     "itineraries": [
                       {
-                        "id": "demo-train",
+                        "id": "outbound-train-via-macon",
                         "direction": "outbound",
                         "requestedDate": "2027-01-15",
                         "dataStatus": "demo",
                         "legs": [
                           {
-                            "id": "demo-leg-train",
+                            "id": "outbound-train-1",
                             "mode": "train",
                             "subtype": null,
                             "originId": "demo-paris",
-                            "destinationId": "demo-lyon",
-                            "durationMinutes": 150,
-                            "waitingMinutes": 0,
+                            "destinationId": "demo-macon",
+                            "durationMinutes": 95,
+                            "waitingMinutes": 10,
                             "distance": {
-                              "km": null,
-                              "method": "unknown",
+                              "km": 250,
+                              "method": "scenario",
                               "provenance": {
                                 "status": "demo",
                                 "sourceIds": [
-                                  "demo-contract"
+                                  "demo-journey-scenarios"
                                 ],
                                 "asOf": null,
-                                "note": "Exemple synthétique de contrat, sans offre réelle."
+                                "note": "Scénario synthétique hors ligne; aucun horaire ni offre réelle."
                               }
                             },
                             "schedule": {
@@ -442,82 +462,147 @@
                               "provenance": {
                                 "status": "demo",
                                 "sourceIds": [
-                                  "demo-contract"
+                                  "demo-journey-scenarios"
                                 ],
                                 "asOf": null,
-                                "note": "Exemple synthétique de contrat, sans offre réelle."
+                                "note": "Scénario synthétique hors ligne; aucun horaire ni offre réelle."
                               }
                             },
                             "provenance": {
                               "status": "demo",
                               "sourceIds": [
-                                "demo-contract"
+                                "demo-journey-scenarios"
                               ],
                               "asOf": null,
-                              "note": "Exemple synthétique de contrat, sans offre réelle."
+                              "note": "Scénario synthétique hors ligne; aucun horaire ni offre réelle."
+                            }
+                          },
+                          {
+                            "id": "outbound-train-2",
+                            "mode": "train",
+                            "subtype": null,
+                            "originId": "demo-macon",
+                            "destinationId": "demo-lyon",
+                            "durationMinutes": 70,
+                            "waitingMinutes": 25,
+                            "distance": {
+                              "km": 155,
+                              "method": "scenario",
+                              "provenance": {
+                                "status": "demo",
+                                "sourceIds": [
+                                  "demo-journey-scenarios"
+                                ],
+                                "asOf": null,
+                                "note": "Scénario synthétique hors ligne; aucun horaire ni offre réelle."
+                              }
+                            },
+                            "schedule": {
+                              "departureAt": null,
+                              "arrivalAt": null,
+                              "provenance": {
+                                "status": "demo",
+                                "sourceIds": [
+                                  "demo-journey-scenarios"
+                                ],
+                                "asOf": null,
+                                "note": "Scénario synthétique hors ligne; aucun horaire ni offre réelle."
+                              }
+                            },
+                            "provenance": {
+                              "status": "demo",
+                              "sourceIds": [
+                                "demo-journey-scenarios"
+                              ],
+                              "asOf": null,
+                              "note": "Scénario synthétique hors ligne; aucun horaire ni offre réelle."
                             }
                           }
                         ],
-                        "durationMinutes": 150,
-                        "transfers": 0,
+                        "durationMinutes": 200,
+                        "transfers": 1,
                         "emissions": {
-                          "status": "unavailable",
-                          "kgCO2ePerTraveler": null,
-                          "kgCO2eGroup": null,
-                          "coveredDistanceKm": 0,
-                          "totalDistanceKm": null,
-                          "comparable": false,
-                          "comparisonKey": null,
-                          "methodologyVersion": "foundation-v1",
+                          "status": "demo",
+                          "kgCO2ePerTraveler": 8.1,
+                          "kgCO2eGroup": 8.1,
+                          "coveredDistanceKm": 405,
+                          "totalDistanceKm": 405,
+                          "comparable": true,
+                          "comparisonKey": "carbon-estimation-v1|kgCO2e|kgCO2e/passenger-km|life_cycle|demo|synthetic_test",
+                          "methodologyVersion": "carbon-estimation-v1",
                           "assumptions": [],
                           "legs": [
                             {
-                              "legId": "demo-leg-train",
-                              "status": "unavailable",
-                              "kgCO2ePerTraveler": null,
-                              "kgCO2eGroup": null,
-                              "factorId": null,
-                              "reason": "Aucun facteur réel vérifié ni distance disponible."
+                              "legId": "outbound-train-1",
+                              "status": "demo",
+                              "kgCO2ePerTraveler": 5,
+                              "kgCO2eGroup": 5,
+                              "factorId": "demo-train-factor-v1",
+                              "reason": "Calcul de démonstration (provenance des données du trajet)."
+                            },
+                            {
+                              "legId": "outbound-train-2",
+                              "status": "demo",
+                              "kgCO2ePerTraveler": 3.1,
+                              "kgCO2eGroup": 3.1,
+                              "factorId": "demo-train-factor-v1",
+                              "reason": "Calcul de démonstration (provenance des données du trajet)."
                             }
                           ],
-                          "factors": []
+                          "factors": [
+                            {
+                              "id": "demo-train-factor-v1",
+                              "value": 0.02,
+                              "unit": "kgCO2e/passenger-km",
+                              "mode": "train",
+                              "subtype": null,
+                              "geography": "FR",
+                              "validFrom": "2026-01-01",
+                              "validUntil": null,
+                              "scope": "life_cycle",
+                              "occupancy": null,
+                              "version": "journey-demo-v1",
+                              "sourceId": "demo-journey-scenarios",
+                              "status": "synthetic_test"
+                            }
+                          ]
                         },
                         "provenance": {
                           "status": "demo",
                           "sourceIds": [
-                            "demo-contract"
+                            "demo-journey-scenarios"
                           ],
                           "asOf": null,
-                          "note": "Exemple synthétique de contrat, sans offre réelle."
+                          "note": "Scénario synthétique hors ligne; aucun horaire ni offre réelle."
                         },
                         "warnings": [
-                          "Durée synthétique; aucun horaire disponible."
+                          "Durées, attentes, distances et facteurs entièrement synthétiques; aucun horaire réel."
                         ]
                       },
                       {
-                        "id": "demo-coach",
+                        "id": "outbound-coach-direct",
                         "direction": "outbound",
                         "requestedDate": "2027-01-15",
                         "dataStatus": "demo",
                         "legs": [
                           {
-                            "id": "demo-leg-coach",
+                            "id": "outbound-coach-1",
                             "mode": "coach",
                             "subtype": null,
                             "originId": "demo-paris",
                             "destinationId": "demo-lyon",
-                            "durationMinutes": 390,
-                            "waitingMinutes": 0,
+                            "durationMinutes": 360,
+                            "waitingMinutes": 15,
                             "distance": {
-                              "km": null,
-                              "method": "unknown",
+                              "km": 465,
+                              "method": "scenario",
                               "provenance": {
                                 "status": "demo",
                                 "sourceIds": [
-                                  "demo-contract"
+                                  "demo-journey-scenarios"
                                 ],
                                 "asOf": null,
-                                "note": "Exemple synthétique de contrat, sans offre réelle."
+                                "note": "Scénario synthétique hors ligne; aucun horaire ni offre réelle."
                               }
                             },
                             "schedule": {
@@ -526,56 +611,72 @@
                               "provenance": {
                                 "status": "demo",
                                 "sourceIds": [
-                                  "demo-contract"
+                                  "demo-journey-scenarios"
                                 ],
                                 "asOf": null,
-                                "note": "Exemple synthétique de contrat, sans offre réelle."
+                                "note": "Scénario synthétique hors ligne; aucun horaire ni offre réelle."
                               }
                             },
                             "provenance": {
                               "status": "demo",
                               "sourceIds": [
-                                "demo-contract"
+                                "demo-journey-scenarios"
                               ],
                               "asOf": null,
-                              "note": "Exemple synthétique de contrat, sans offre réelle."
+                              "note": "Scénario synthétique hors ligne; aucun horaire ni offre réelle."
                             }
                           }
                         ],
-                        "durationMinutes": 390,
+                        "durationMinutes": 375,
                         "transfers": 0,
                         "emissions": {
-                          "status": "unavailable",
-                          "kgCO2ePerTraveler": null,
-                          "kgCO2eGroup": null,
-                          "coveredDistanceKm": 0,
-                          "totalDistanceKm": null,
-                          "comparable": false,
-                          "comparisonKey": null,
-                          "methodologyVersion": "foundation-v1",
+                          "status": "demo",
+                          "kgCO2ePerTraveler": 18.6,
+                          "kgCO2eGroup": 18.6,
+                          "coveredDistanceKm": 465,
+                          "totalDistanceKm": 465,
+                          "comparable": true,
+                          "comparisonKey": "carbon-estimation-v1|kgCO2e|kgCO2e/passenger-km|life_cycle|demo|synthetic_test",
+                          "methodologyVersion": "carbon-estimation-v1",
                           "assumptions": [],
                           "legs": [
                             {
-                              "legId": "demo-leg-coach",
-                              "status": "unavailable",
-                              "kgCO2ePerTraveler": null,
-                              "kgCO2eGroup": null,
-                              "factorId": null,
-                              "reason": "Aucun facteur réel vérifié ni distance disponible."
+                              "legId": "outbound-coach-1",
+                              "status": "demo",
+                              "kgCO2ePerTraveler": 18.6,
+                              "kgCO2eGroup": 18.6,
+                              "factorId": "demo-coach-factor-v1",
+                              "reason": "Calcul de démonstration (provenance des données du trajet)."
                             }
                           ],
-                          "factors": []
+                          "factors": [
+                            {
+                              "id": "demo-coach-factor-v1",
+                              "value": 0.04,
+                              "unit": "kgCO2e/passenger-km",
+                              "mode": "coach",
+                              "subtype": null,
+                              "geography": "FR",
+                              "validFrom": "2026-01-01",
+                              "validUntil": null,
+                              "scope": "life_cycle",
+                              "occupancy": null,
+                              "version": "journey-demo-v1",
+                              "sourceId": "demo-journey-scenarios",
+                              "status": "synthetic_test"
+                            }
+                          ]
                         },
                         "provenance": {
                           "status": "demo",
                           "sourceIds": [
-                            "demo-contract"
+                            "demo-journey-scenarios"
                           ],
                           "asOf": null,
-                          "note": "Exemple synthétique de contrat, sans offre réelle."
+                          "note": "Scénario synthétique hors ligne; aucun horaire ni offre réelle."
                         },
                         "warnings": [
-                          "Durée synthétique; aucun horaire disponible."
+                          "Durées, attentes, distances et facteurs entièrement synthétiques; aucun horaire réel."
                         ]
                       }
                     ],
@@ -588,18 +689,18 @@
                   },
                   "sources": [
                     {
-                      "id": "demo-contract",
-                      "publisher": "Ecotrip — fixture synthétique",
+                      "id": "demo-journey-scenarios",
+                      "publisher": "Ecotrip — scénarios synthétiques",
                       "url": null,
                       "license": null,
                       "accessedAt": null,
-                      "version": "contract-v1",
-                      "reuseNotes": "Tests et développement UI uniquement; aucune attribution scientifique.",
+                      "version": "journey-demo-v1",
+                      "reuseNotes": "Démonstration et tests uniquement; distances, durées et émissions fictives.",
                       "dataStatus": "demo"
                     }
                   ],
                   "warnings": [
-                    "Exemple de contrat uniquement."
+                    "Résultats de démonstration hors ligne; aucune offre réelle ni fallback de fournisseur."
                   ]
                 }
               }
@@ -748,10 +849,10 @@
                       "provenance": {
                         "status": "demo",
                         "sourceIds": [
-                          "demo-contract"
+                          "demo-journey-scenarios"
                         ],
                         "asOf": null,
-                        "note": "Exemple synthétique de contrat, sans offre réelle."
+                        "note": "Scénario synthétique hors ligne; aucun horaire ni offre réelle."
                       }
                     }
                   ],
@@ -762,13 +863,13 @@
                   },
                   "sources": [
                     {
-                      "id": "demo-contract",
-                      "publisher": "Ecotrip — fixture synthétique",
+                      "id": "demo-journey-scenarios",
+                      "publisher": "Ecotrip — scénarios synthétiques",
                       "url": null,
                       "license": null,
                       "accessedAt": null,
-                      "version": "contract-v1",
-                      "reuseNotes": "Tests et développement UI uniquement; aucune attribution scientifique.",
+                      "version": "journey-demo-v1",
+                      "reuseNotes": "Démonstration et tests uniquement; distances, durées et émissions fictives.",
                       "dataStatus": "demo"
                     }
                   ],

@@ -16,10 +16,10 @@
       "provenance": {
         "status": "demo",
         "sourceIds": [
-          "demo-contract"
+          "demo-journey-scenarios"
         ],
         "asOf": null,
-        "note": "Exemple synthétique de contrat, sans offre réelle."
+        "note": "Scénario synthétique hors ligne; aucun horaire ni offre réelle."
       }
     }
   ],
@@ -30,13 +30,13 @@
   },
   "sources": [
     {
-      "id": "demo-contract",
-      "publisher": "Ecotrip — fixture synthétique",
+      "id": "demo-journey-scenarios",
+      "publisher": "Ecotrip — scénarios synthétiques",
       "url": null,
       "license": null,
       "accessedAt": null,
-      "version": "contract-v1",
-      "reuseNotes": "Tests et développement UI uniquement; aucune attribution scientifique.",
+      "version": "journey-demo-v1",
+      "reuseNotes": "Démonstration et tests uniquement; distances, durées et émissions fictives.",
       "dataStatus": "demo"
     }
   ],

@@ -22,9 +22,6 @@ final class ProblemTest extends WebTestCase
 
     public static function plannedEndpoints(): iterable
     {
-        yield ['GET', '/api/v1/capabilities'];
-        yield ['GET', '/api/v1/places'];
-        yield ['POST', '/api/v1/journeys/search'];
         yield ['GET', '/api/v1/accommodations'];
     }
 }

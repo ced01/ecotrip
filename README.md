@@ -1,6 +1,6 @@
 # Ecotrip — socle et contrats
 
-Socle technique d’un démonstrateur de comparaison de voyages. TASK-0001 fournit Symfony 7.4/PHP 8.4, PostgreSQL 17, Twig/Stimulus via AssetMapper, la migration initiale et un contrat OpenAPI. TASK-0002 ajoute l’estimation CO₂e auditable par étape et `GET /api/v1/methodology`. Les autres routes métier restent planifiées et répondent en Problem JSON 404.
+Socle technique d’un démonstrateur de comparaison de voyages. TASK-0001 fournit Symfony 7.4/PHP 8.4, PostgreSQL 17, Twig/Stimulus via AssetMapper, la migration initiale et un contrat OpenAPI. TASK-0002 ajoute l’estimation CO₂e auditable par étape. TASK-0003 implémente `capabilities`, le catalogue de lieux et la recherche de trajets de démonstration; l’hébergement reste planifié.
 
 Les données de `docs/examples/` sont entièrement synthétiques, hors ligne et destinées au développement d’interface. Elles ne prouvent ni horaire, disponibilité, prix, label, facteur environnemental, ni offre d’un fournisseur réel.
 
@@ -40,9 +40,11 @@ docker compose --env-file .env.local run --rm app php bin/console importmap:audi
 curl -i http://127.0.0.1:18081/health
 curl -i http://127.0.0.1:18081/api/v1/methodology
 curl -i http://127.0.0.1:18081/api/v1/capabilities
+curl -i 'http://127.0.0.1:18081/api/v1/places?q=lyon'
+curl -i -H 'Content-Type: application/json' -d '{"originId":"demo-paris","destinationId":"demo-lyon","departureDate":"2027-01-15","returnDate":null,"travelers":1,"modes":["train","coach"]}' http://127.0.0.1:18081/api/v1/journeys/search
 ```
 
-Résultats attendus : `/health` et `/api/v1/methodology` retournent `200 application/json`; l’endpoint métier non implémenté retourne `404 application/problem+json` sans détail interne. `composer check` exécute PHPUnit, les lints conteneur/Twig/YAML, compile AssetMapper et valide le contrat avec ses six exemples JSON.
+Résultats attendus : les routes implémentées retournent `200 application/json`; `/api/v1/accommodations`, encore non implémenté, retourne `404 application/problem+json` sans détail interne. Les trajets sont toujours marqués `demo`, les deux directions sont calculées séparément et aucune panne ne déclenche de fallback silencieux. `composer check` exécute PHPUnit, les lints conteneur/Twig/YAML, compile AssetMapper et valide le contrat avec ses six exemples JSON.
 
 Arrêt sans supprimer les données PostgreSQL :
 
