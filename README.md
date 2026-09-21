@@ -1,6 +1,6 @@
 # Ecotrip — socle et contrats
 
-Socle technique d’un démonstrateur de comparaison de voyages. TASK-0001 fournit Symfony 7.4/PHP 8.4, PostgreSQL 17, Twig/Stimulus via AssetMapper, la migration initiale et un contrat OpenAPI. **Seul `GET /health` est implémenté.** Les routes métier décrites dans le contrat sont planifiées pour des tâches ultérieures et répondent actuellement en Problem JSON 404.
+Socle technique d’un démonstrateur de comparaison de voyages. TASK-0001 fournit Symfony 7.4/PHP 8.4, PostgreSQL 17, Twig/Stimulus via AssetMapper, la migration initiale et un contrat OpenAPI. TASK-0002 ajoute l’estimation CO₂e auditable par étape et `GET /api/v1/methodology`. Les autres routes métier restent planifiées et répondent en Problem JSON 404.
 
 Les données de `docs/examples/` sont entièrement synthétiques, hors ligne et destinées au développement d’interface. Elles ne prouvent ni horaire, disponibilité, prix, label, facteur environnemental, ni offre d’un fournisseur réel.
 
@@ -38,10 +38,11 @@ docker compose --env-file .env.local run --rm app composer audit
 docker compose --env-file .env.local run --rm app php bin/console importmap:audit
 
 curl -i http://127.0.0.1:18081/health
+curl -i http://127.0.0.1:18081/api/v1/methodology
 curl -i http://127.0.0.1:18081/api/v1/capabilities
 ```
 
-Résultats attendus : `/health` retourne `200 application/json` et `{"status":"ok","service":"ecotrip"}`; l’endpoint métier non implémenté retourne `404 application/problem+json` sans détail interne. `composer check` exécute PHPUnit, les lints conteneur/Twig/YAML, compile AssetMapper et valide le contrat avec ses six exemples JSON.
+Résultats attendus : `/health` et `/api/v1/methodology` retournent `200 application/json`; l’endpoint métier non implémenté retourne `404 application/problem+json` sans détail interne. `composer check` exécute PHPUnit, les lints conteneur/Twig/YAML, compile AssetMapper et valide le contrat avec ses six exemples JSON.
 
 Arrêt sans supprimer les données PostgreSQL :
 

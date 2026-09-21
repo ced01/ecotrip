@@ -2,7 +2,7 @@
 
 ## État actuel
 
-TASK-0001 n’intègre **aucune source réelle** et ne contient aucune donnée métier en base. Les objets `demo-*` de `docs/examples/` sont synthétiques : ils servent uniquement à stabiliser le contrat et ne doivent jamais être affichés comme horaires, disponibilités, prix, labels ou performances environnementales réels.
+Le projet n’intègre **aucune source réelle** et ne contient aucune donnée métier en base. Les objets `demo-*` de `docs/examples/` sont synthétiques : ils servent uniquement à stabiliser le contrat et ne doivent jamais être affichés comme horaires, disponibilités, prix, labels ou performances environnementales réels. TASK-0002 ajoute la source déclarative `synthetic-tests`, clairement marquée `demo`; ses facteurs fictifs n’existent que dans les tests arithmétiques et ne sont ni une mesure ni une moyenne publiée.
 
 ## Sources candidates à instruire
 

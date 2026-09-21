@@ -2,8 +2,8 @@
   "openapi": "3.0.3",
   "info": {
     "title": "Ecotrip internal API",
-    "version": "1.0.0",
-    "description": "Contrat MVP. Seul /health fonctionne en TASK-0001; endpoints métier planifiés, non simulés par le serveur. Les exemples sont synthétiques et hors ligne. Même origine, pas de compte ni réservation."
+    "version": "1.1.0",
+    "description": "Contrat MVP. /health et /api/v1/methodology sont implémentés; les autres endpoints métier restent planifiés. Les exemples sont synthétiques et hors ligne. Même origine, pas de compte ni réservation."
   },
   "servers": [
     {
@@ -947,7 +947,7 @@
       "get": {
         "operationId": "methodology",
         "summary": "methodology",
-        "x-implementation-status": "planned",
+        "x-implementation-status": "implemented",
         "responses": {
           "200": {
             "description": "Réponse conforme au contrat",
@@ -957,19 +957,38 @@
                   "$ref": "#/components/schemas/Methodology"
                 },
                 "example": {
-                  "version": "foundation-v1",
-                  "status": "unavailable",
+                  "version": "carbon-estimation-v1",
+                  "status": "demo",
                   "indicator": "kgCO2e",
-                  "scopes": [],
+                  "scopes": [
+                    "operation",
+                    "life_cycle"
+                  ],
                   "rules": [
-                    "Données inconnues représentées par null, jamais zéro.",
-                    "Pas de comparaison de périmètres incompatibles."
+                    "Calcul séparé pour chaque étape à partir de sa distance.",
+                    "Facteur passager-km : distance × facteur par voyageur.",
+                    "Facteur véhicule-km : distance × facteur ÷ occupation par voyageur.",
+                    "Une distance ou émission inconnue vaut null, jamais zéro.",
+                    "Les facteurs véhicule-km exigent une occupation explicite.",
+                    "Seules des estimations complètes de même unité, périmètre et méthode sont comparables."
                   ],
                   "limits": [
-                    "Aucun facteur réel vérifié au stade socle.",
-                    "Pas de bilan hôtelier ni de score écologique global."
+                    "Aucun facteur réel n’est livré : les calculs intégrés aux tests utilisent uniquement des facteurs synthétiques.",
+                    "Les sommes partielles ne permettent aucun classement carbone.",
+                    "Pas de bilan hôtelier, de forçage radiatif ni de score écologique global."
                   ],
-                  "sources": []
+                  "sources": [
+                    {
+                      "id": "synthetic-tests",
+                      "publisher": "Ecotrip",
+                      "url": null,
+                      "license": null,
+                      "accessedAt": null,
+                      "version": "carbon-estimation-v1",
+                      "reuseNotes": "Facteurs arithmétiques fictifs réservés aux tests; aucune donnée environnementale réelle.",
+                      "dataStatus": "demo"
+                    }
+                  ]
                 }
               }
             }

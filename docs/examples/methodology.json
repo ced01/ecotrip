@@ -1,15 +1,34 @@
 {
-  "version": "foundation-v1",
-  "status": "unavailable",
+  "version": "carbon-estimation-v1",
+  "status": "demo",
   "indicator": "kgCO2e",
-  "scopes": [],
+  "scopes": [
+    "operation",
+    "life_cycle"
+  ],
   "rules": [
-    "Données inconnues représentées par null, jamais zéro.",
-    "Pas de comparaison de périmètres incompatibles."
+    "Calcul séparé pour chaque étape à partir de sa distance.",
+    "Facteur passager-km : distance × facteur par voyageur.",
+    "Facteur véhicule-km : distance × facteur ÷ occupation par voyageur.",
+    "Une distance ou émission inconnue vaut null, jamais zéro.",
+    "Les facteurs véhicule-km exigent une occupation explicite.",
+    "Seules des estimations complètes de même unité, périmètre et méthode sont comparables."
   ],
   "limits": [
-    "Aucun facteur réel vérifié au stade socle.",
-    "Pas de bilan hôtelier ni de score écologique global."
+    "Aucun facteur réel n’est livré : les calculs intégrés aux tests utilisent uniquement des facteurs synthétiques.",
+    "Les sommes partielles ne permettent aucun classement carbone.",
+    "Pas de bilan hôtelier, de forçage radiatif ni de score écologique global."
   ],
-  "sources": []
+  "sources": [
+    {
+      "id": "synthetic-tests",
+      "publisher": "Ecotrip",
+      "url": null,
+      "license": null,
+      "accessedAt": null,
+      "version": "carbon-estimation-v1",
+      "reuseNotes": "Facteurs arithmétiques fictifs réservés aux tests; aucune donnée environnementale réelle.",
+      "dataStatus": "demo"
+    }
+  ]
 }

@@ -1,15 +1,15 @@
 # Architecture du socle
 
-## Portée de TASK-0001
+## Portée actuelle
 
-L’application est un monolithe modulaire Symfony 7.4 exécuté en PHP 8.4, avec PostgreSQL 17. TASK-0001 définit les frontières, les contrats et le stockage initial sans implémenter les recherches métier. Le seul contrôleur fonctionnel est `GET /health`, qui indique uniquement la vivacité du processus et ne prétend pas tester la base ou des fournisseurs.
+L’application est un monolithe modulaire Symfony 7.4 exécuté en PHP 8.4, avec PostgreSQL 17. TASK-0001 définit les frontières, les contrats et le stockage initial sans implémenter les recherches métier. TASK-0002 implémente le moteur d’estimation environnementale et l’endpoint de méthodologie. `GET /health` indique uniquement la vivacité du processus et ne prétend pas tester la base ou des fournisseurs.
 
 ## Modules
 
-- `Controller/Api` : adaptateurs HTTP; aucun contrôleur métier avant les tâches dédiées.
+- `Controller/Api` : adaptateurs HTTP; santé et méthodologie sont implémentées, les recherches restent dédiées aux tâches futures.
 - `Provider` : ports `PlaceProvider`, `JourneyProvider` et `AccommodationProvider`; les futurs adaptateurs externes devront respecter ces interfaces et traduire leurs pannes en `ProviderUnavailable`.
 - `Trip` et `Accommodation` : requêtes et résultats indépendants du transport HTTP.
-- `Environmental` : port d’accès aux facteurs, sans facteur embarqué ni calcul implicite.
+- `Environmental` : port d’accès aux facteurs, estimateur pur par étape et comparateur strict. Aucun facteur réel n’est embarqué.
 - `Http/ProblemListener` : erreurs HTTP au format `application/problem+json`, sans trace, chemin système ou message interne.
 
 Les interfaces empêchent de coupler le domaine à un fournisseur précis. Aucun fallback silencieux de données réelles vers les fixtures `demo` n’est autorisé.
@@ -28,4 +28,4 @@ Twig rend le HTML et `importmap.php` expose l’entrée `assets/app.js`. Stimulu
 
 `docs/openapi.yaml` est la source de vérité pour les formes de requête/réponse prévues. Chaque opération porte `x-implementation-status`; seules les opérations marquées `implemented` peuvent être considérées disponibles. Les erreurs publiques suivent Problem Details avec un `code` stable.
 
-Limites du socle : pas de compte, réservation, paiement, cache fournisseur, endpoint métier, ingestion, donnée temps réel ou score écologique global.
+Limites du socle : pas de compte, réservation, paiement, cache fournisseur, recherche métier, ingestion, donnée temps réel ou score écologique global.

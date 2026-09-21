@@ -26,6 +26,5 @@ final class ProblemTest extends WebTestCase
         yield ['GET', '/api/v1/places'];
         yield ['POST', '/api/v1/journeys/search'];
         yield ['GET', '/api/v1/accommodations'];
-        yield ['GET', '/api/v1/methodology'];
     }
 }

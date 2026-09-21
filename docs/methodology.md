@@ -1,34 +1,44 @@
 # Méthodologie environnementale
 
-## Statut
+## Statut et version
 
-La version contractuelle `foundation-v1` est `unavailable` : aucun facteur environnemental réel n’est intégré ou vérifié dans TASK-0001. Les exemples retournent donc des émissions `null`, `comparable: false` et une raison explicite. Les durées synthétiques ne sont pas des horaires.
+La version `carbon-estimation-v1` implémente le calcul par étape et l’endpoint `GET /api/v1/methodology`. Son statut public est `demo` : aucun facteur environnemental réel n’est livré. Les nombres employés par les tests sont fictifs, portent le statut `synthetic_test` et référencent la source `synthetic-tests`; ils démontrent uniquement l’arithmétique et le contrat.
 
-## Indicateur et calcul prévu
+## Indicateur et calcul
 
-L’indicateur prévu est le kilogramme de CO₂ équivalent (`kgCO2e`). Un calcul futur devra être effectué par étape et conserver le facteur exact utilisé : valeur, unité, mode/sous-type, géographie, période de validité, périmètre, hypothèse d’occupation, version et source.
+L’indicateur est le kilogramme de CO₂ équivalent (`kgCO2e`). Chaque étape conserve le facteur exact utilisé : valeur, unité, mode/sous-type, géographie, période de validité, périmètre, occupation, version, source et statut.
 
-Deux unités sont modélisées :
+Pour une distance `d`, un facteur `f` et `n` voyageurs :
 
-- `kgCO2e/passenger-km` : multiplication par la distance couverte et le nombre de voyageurs pour le total groupe ;
-- `kgCO2e/vehicle-km` : une hypothèse d’occupation documentée est nécessaire avant attribution par voyageur.
+- `kgCO2e/passenger-km` : individuel = `d × f`; groupe = `d × f × n` ;
+- `kgCO2e/vehicle-km` avec occupation explicite `o` : individuel = `d × f ÷ o`; groupe = `d × f ÷ o × n`.
 
-Aucune valeur n’est fournie ici. Les tâches futures devront définir et tester les règles d’arrondi, la sélection temporelle/géographique des facteurs et la gestion précise de l’occupation avant d’activer un calcul.
+L’occupation est donc une hypothèse d’allocation moyenne, visible dans `assumptions`; elle ne représente ni le remplissage observé ni le nombre de véhicules réservé par le groupe. Un facteur véhicule-km sans occupation est indisponible. Les résultats sont arrondis à 12 décimales après chaque étape et sur le total afin de limiter les artefacts binaires tout en conservant la précision des données d’entrée.
 
-## Couverture et comparaison
+Le dépôt fournit les candidats correspondant au mode, sous-type, territoire et jour. Une étape n’est calculée que si exactement un facteur applicable reste sélectionné. Zéro ou plusieurs candidats donnent une raison explicite et évitent un choix implicite.
 
-- calculer séparément chaque étape couverte ;
-- exposer distance totale et distance couverte ;
-- utiliser `partial` si seule une partie mesurable est calculée ;
-- utiliser `unavailable` si aucun résultat défendable n’est possible ;
-- ne jamais remplacer une valeur inconnue par zéro ;
-- ne classer deux résultats que si unité, périmètre et méthode sont compatibles via une même `comparisonKey` ;
-- ne jamais mélanger silencieusement périmètre opérationnel et cycle de vie.
+## Statuts, couverture et valeurs inconnues
 
-Un total partiel décrit uniquement les étapes couvertes et n’autorise pas un classement carbone global. La marche, l’attente, les correspondances et les retours doivent rester explicitement modélisés, sans double comptage.
+- `complete` : toutes les étapes sont calculées avec des facteurs vérifiés ;
+- `demo` : toutes les étapes sont calculées et au moins un facteur est synthétique ;
+- `partial` : certaines étapes seulement sont calculées ;
+- `unavailable` : aucune étape ne peut être calculée.
+
+Chaque étape vaut elle-même `complete`, `demo` ou `unavailable`. Une somme partielle porte uniquement sur les étapes couvertes. `coveredDistanceKm` est toujours explicite; `totalDistanceKm` vaut `null` dès qu’une distance est inconnue. Une émission inconnue vaut `null`, jamais zéro. Une distance réellement nulle avec un facteur applicable produit en revanche une émission numérique nulle.
+
+## Comparabilité
+
+Une estimation est comparable uniquement si elle est complète et si tous ses facteurs partagent unité, périmètre (`operation` ou `life_cycle`) et statut de données. Sa `comparisonKey` encode la version de méthodologie, l’indicateur, l’unité, le périmètre et le statut. Le comparateur refuse explicitement :
+
+- les estimations partielles ou indisponibles ;
+- les unités différentes ;
+- les périmètres opération et cycle de vie différents ;
+- les méthodes ou statuts réel/démonstration différents.
+
+Un statut `demo` reste visible même lorsqu’une comparaison arithmétique entre deux scénarios synthétiques homogènes est possible. Il ne constitue jamais une affirmation environnementale réelle.
 
 ## Limites
 
-Le contrat ne constitue ni analyse de cycle de vie complète, ni conseil de réservation. Il ne couvre pas les émissions hôtelières, la disponibilité, les prix, le forçage radiatif, l’infrastructure, les effets rebond ou un « score écologique » composite. Une preuve d’hébergement porte sur une allégation précise; elle ne permet pas d’inférer une performance globale.
+La méthode ne constitue ni analyse de cycle de vie complète, ni conseil de réservation. Elle ne couvre pas les émissions hôtelières, la disponibilité, les prix, le forçage radiatif, l’infrastructure, les effets rebond ou un « score écologique » composite. La qualité d’un résultat dépend de la distance et du facteur fournis; aucune valeur manquante n’est imputée et aucun fallback de données réelles vers une fixture n’est autorisé.
 
-Toute évolution doit être accompagnée de sources datées, des droits de réutilisation, d’hypothèses visibles et de tests de non-comparabilité pour les cas incomplets ou incompatibles.
+Toute intégration future de facteurs réels devra documenter l’éditeur exact, l’URL, la licence, la version, la date d’accès, la validité, la géographie, le périmètre et les limites avant d’utiliser le statut `verified`.

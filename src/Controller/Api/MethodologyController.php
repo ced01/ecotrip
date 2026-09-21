@@ -1,0 +1,46 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Controller\Api;
+
+use App\Environmental\EmissionEstimator;
+use Symfony\Component\HttpFoundation\JsonResponse;
+use Symfony\Component\Routing\Attribute\Route;
+
+final class MethodologyController
+{
+    #[Route('/api/v1/methodology', name: 'methodology', methods: ['GET'])]
+    public function __invoke(): JsonResponse
+    {
+        return new JsonResponse([
+            'version' => EmissionEstimator::METHODOLOGY_VERSION,
+            'status' => 'demo',
+            'indicator' => 'kgCO2e',
+            'scopes' => ['operation', 'life_cycle'],
+            'rules' => [
+                'Calcul séparé pour chaque étape à partir de sa distance.',
+                'Facteur passager-km : distance × facteur par voyageur.',
+                'Facteur véhicule-km : distance × facteur ÷ occupation par voyageur.',
+                'Une distance ou émission inconnue vaut null, jamais zéro.',
+                'Les facteurs véhicule-km exigent une occupation explicite.',
+                'Seules des estimations complètes de même unité, périmètre et méthode sont comparables.',
+            ],
+            'limits' => [
+                'Aucun facteur réel n’est livré : les calculs intégrés aux tests utilisent uniquement des facteurs synthétiques.',
+                'Les sommes partielles ne permettent aucun classement carbone.',
+                'Pas de bilan hôtelier, de forçage radiatif ni de score écologique global.',
+            ],
+            'sources' => [[
+                'id' => 'synthetic-tests',
+                'publisher' => 'Ecotrip',
+                'url' => null,
+                'license' => null,
+                'accessedAt' => null,
+                'version' => 'carbon-estimation-v1',
+                'reuseNotes' => 'Facteurs arithmétiques fictifs réservés aux tests; aucune donnée environnementale réelle.',
+                'dataStatus' => 'demo',
+            ]],
+        ]);
+    }
+}
