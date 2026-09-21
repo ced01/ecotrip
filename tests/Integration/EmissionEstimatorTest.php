@@ -45,18 +45,47 @@ final class EmissionEstimatorTest extends TestCase
         self::assertContains('Occupation moyenne du facteur coach-test-v1 : 40 voyageurs par véhicule.', $estimate['assumptions']);
     }
 
-    public function testVerifiedFactorProducesCompleteStatus(): void
+    public function testDemoProvenanceCannotBeMaskedByVerifiedFactorOrComparedWithRealData(): void
     {
         $factor = self::factor('rail-verified-fixture', 0.015, 'kgCO2e/passenger-km', 'life_cycle');
         $factor['status'] = 'verified';
         $factor['sourceId'] = 'verified-repository-fixture';
 
-        $estimate = $this->singleLegEstimate($factor);
+        $demo = $this->singleLegEstimate($factor, 'demo');
+        $real = $this->singleLegEstimate($factor, 'real');
 
-        self::assertSame('complete', $estimate['status']);
-        self::assertSame('complete', $estimate['legs'][0]['status']);
-        self::assertTrue($estimate['comparable']);
-        self::assertStringContainsString('|verified', $estimate['comparisonKey']);
+        self::assertSame('demo', $demo['status']);
+        self::assertSame('demo', $demo['legs'][0]['status']);
+        self::assertSame('Calcul de démonstration (provenance des données du trajet).', $demo['legs'][0]['reason']);
+        self::assertTrue($demo['comparable']);
+        self::assertStringContainsString('|demo|verified', $demo['comparisonKey']);
+
+        self::assertSame('complete', $real['status']);
+        self::assertSame('complete', $real['legs'][0]['status']);
+        self::assertNull($real['legs'][0]['reason']);
+        self::assertTrue($real['comparable']);
+        self::assertStringContainsString('|real|verified', $real['comparisonKey']);
+        self::assertNotSame($real['comparisonKey'], $demo['comparisonKey']);
+
+        $this->expectException(\DomainException::class);
+        $this->expectExceptionMessage('Estimations non comparables');
+        (new EmissionComparator())->compare($demo, $real);
+    }
+
+    public function testTotalsAreRoundedOnlyAfterAggregatingUnroundedLegAmounts(): void
+    {
+        $factor = self::factor('rail-small-v1', 0.0000000000004, 'kgCO2e/passenger-km', 'life_cycle');
+        $estimator = new EmissionEstimator($this->repository([$factor]));
+
+        $estimate = $estimator->estimate([
+            ['id' => 'leg-1', 'mode' => 'train', 'subtype' => null, 'distanceKm' => 1.0],
+            ['id' => 'leg-2', 'mode' => 'train', 'subtype' => null, 'distanceKm' => 1.0],
+            ['id' => 'leg-3', 'mode' => 'train', 'subtype' => null, 'distanceKm' => 1.0],
+        ], 3, 'FR', new \DateTimeImmutable('2027-01-15'), 'demo');
+
+        self::assertSame(0.000000000001, $estimate['kgCO2ePerTraveler']);
+        self::assertSame(0.000000000004, $estimate['kgCO2eGroup']);
+        self::assertSame([0.0, 0.0, 0.0], array_column($estimate['legs'], 'kgCO2ePerTraveler'));
     }
 
     public function testUnknownDistanceIsNullAndNeverConfusedWithMeasuredZero(): void
@@ -83,12 +112,20 @@ final class EmissionEstimatorTest extends TestCase
         self::assertSame(0.0, $zero['totalDistanceKm']);
     }
 
-    public function testMissingFactorProducesAnExplicitPartialEstimate(): void
+    public function testMissingFactorKeepsDemoProvenanceVisibleOnPartialCoverage(): void
     {
         $repository = new class implements EmissionFactorRepository {
             public function findCandidates(string $mode, ?string $subtype, string $geography, \DateTimeImmutable $date): array
             {
-                return $mode === 'train' ? [EmissionEstimatorTest::factor('rail-test-v1', 0.01, 'kgCO2e/passenger-km', 'life_cycle')] : [];
+                if ($mode !== 'train') {
+                    return [];
+                }
+
+                $factor = EmissionEstimatorTest::factor('rail-test-v1', 0.01, 'kgCO2e/passenger-km', 'life_cycle');
+                $factor['status'] = 'verified';
+                $factor['sourceId'] = 'verified-repository-fixture';
+
+                return [$factor];
             }
         };
         $estimate = (new EmissionEstimator($repository))->estimate([
@@ -96,14 +133,25 @@ final class EmissionEstimatorTest extends TestCase
             ['id' => 'missing', 'mode' => 'flight', 'subtype' => null, 'distanceKm' => 500.0],
         ], 2, 'FR', new \DateTimeImmutable('2027-01-15'), 'demo');
 
-        self::assertSame('partial', $estimate['status']);
+        self::assertSame('demo', $estimate['status']);
         self::assertSame(1.0, $estimate['kgCO2ePerTraveler']);
         self::assertSame(2.0, $estimate['kgCO2eGroup']);
         self::assertSame(100.0, $estimate['coveredDistanceKm']);
         self::assertSame(600.0, $estimate['totalDistanceKm']);
         self::assertFalse($estimate['comparable']);
         self::assertNull($estimate['comparisonKey']);
+        self::assertSame('demo', $estimate['legs'][0]['status']);
+        self::assertSame('unavailable', $estimate['legs'][1]['status']);
         self::assertSame('Aucun facteur applicable.', $estimate['legs'][1]['reason']);
+
+        $real = (new EmissionEstimator($repository))->estimate([
+            ['id' => 'covered', 'mode' => 'train', 'subtype' => null, 'distanceKm' => 100.0],
+            ['id' => 'missing', 'mode' => 'flight', 'subtype' => null, 'distanceKm' => 500.0],
+        ], 2, 'FR', new \DateTimeImmutable('2027-01-15'), 'real');
+
+        self::assertSame('partial', $real['status']);
+        self::assertSame('complete', $real['legs'][0]['status']);
+        self::assertNull($real['legs'][0]['reason']);
     }
 
     public function testIncompatibleScopesAreExplicitlyNotComparableAndComparisonIsRefused(): void
@@ -147,10 +195,10 @@ final class EmissionEstimatorTest extends TestCase
         return ['id' => $id, 'value' => $value, 'unit' => $unit, 'mode' => str_starts_with($id, 'coach') ? 'coach' : (str_starts_with($id, 'walk') ? 'walk' : 'train'), 'subtype' => null, 'geography' => 'FR', 'validFrom' => '2026-01-01', 'validUntil' => null, 'scope' => $scope, 'occupancy' => $occupancy, 'version' => 'test-v1', 'sourceId' => 'synthetic-tests', 'status' => 'synthetic_test'];
     }
 
-    private function singleLegEstimate(array $factor): array
+    private function singleLegEstimate(array $factor, string $dataStatus = 'demo'): array
     {
         return (new EmissionEstimator($this->repository([$factor])))->estimate([
             ['id' => 'leg', 'mode' => 'train', 'subtype' => null, 'distanceKm' => 100.0],
-        ], 1, 'FR', new \DateTimeImmutable('2027-01-15'), 'demo');
+        ], 1, 'FR', new \DateTimeImmutable('2027-01-15'), $dataStatus);
     }
 }

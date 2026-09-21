@@ -13,22 +13,22 @@ Pour une distance `d`, un facteur `f` et `n` voyageurs :
 - `kgCO2e/passenger-km` : individuel = `d × f`; groupe = `d × f × n` ;
 - `kgCO2e/vehicle-km` avec occupation explicite `o` : individuel = `d × f ÷ o`; groupe = `d × f ÷ o × n`.
 
-L’occupation est donc une hypothèse d’allocation moyenne, visible dans `assumptions`; elle ne représente ni le remplissage observé ni le nombre de véhicules réservé par le groupe. Un facteur véhicule-km sans occupation est indisponible. Les résultats sont arrondis à 12 décimales après chaque étape et sur le total afin de limiter les artefacts binaires tout en conservant la précision des données d’entrée.
+L’occupation est donc une hypothèse d’allocation moyenne, visible dans `assumptions`; elle ne représente ni le remplissage observé ni le nombre de véhicules réservé par le groupe. Un facteur véhicule-km sans occupation est indisponible. Les calculs internes conservent les montants intermédiaires non arrondis : le total individuel est leur somme et le total groupe est cette somme non arrondie multipliée par le nombre de voyageurs. Chaque montant exposé (étape ou total) est ensuite arrondi indépendamment à 12 décimales, une seule fois et au plus près selon la règle PHP `round` (`PHP_ROUND_HALF_UP` par défaut). Un total peut donc conserver des fractions cumulées invisibles dans l’affichage arrondi des étapes; il n’est jamais obtenu en additionnant ces affichages.
 
 Le dépôt fournit les candidats correspondant au mode, sous-type, territoire et jour. Une étape n’est calculée que si exactement un facteur applicable reste sélectionné. Zéro ou plusieurs candidats donnent une raison explicite et évitent un choix implicite.
 
 ## Statuts, couverture et valeurs inconnues
 
-- `complete` : toutes les étapes sont calculées avec des facteurs vérifiés ;
-- `demo` : toutes les étapes sont calculées et au moins un facteur est synthétique ;
-- `partial` : certaines étapes seulement sont calculées ;
+- `complete` : toutes les étapes de provenance réelle sont calculées avec des facteurs vérifiés ;
+- `demo` : au moins une émission calculée provient d’un trajet `demo` ou d’un facteur synthétique, y compris lorsque la couverture est incomplète ;
+- `partial` : certaines étapes seulement sont calculées, sans aucune provenance de démonstration ;
 - `unavailable` : aucune étape ne peut être calculée.
 
-Chaque étape vaut elle-même `complete`, `demo` ou `unavailable`. Une somme partielle porte uniquement sur les étapes couvertes. `coveredDistanceKm` est toujours explicite; `totalDistanceKm` vaut `null` dès qu’une distance est inconnue. Une émission inconnue vaut `null`, jamais zéro. Une distance réellement nulle avec un facteur applicable produit en revanche une émission numérique nulle.
+Chaque étape calculée vaut `demo` dès que le trajet est de démonstration ou que son facteur est synthétique; sa `reason` indique laquelle de ces provenances impose ce statut. Elle vaut sinon `complete`; une étape non calculable reste `unavailable` avec sa raison. Sur un trajet `demo` partiellement couvert, le statut global reste donc `demo`, tandis que les étapes indisponibles et `comparable: false` rendent la couverture partielle explicite sans masquer la provenance. Une somme partielle porte uniquement sur les étapes couvertes. `coveredDistanceKm` est toujours explicite; `totalDistanceKm` vaut `null` dès qu’une distance est inconnue. Une émission inconnue vaut `null`, jamais zéro. Une distance réellement nulle avec un facteur applicable produit en revanche une émission numérique nulle.
 
 ## Comparabilité
 
-Une estimation est comparable uniquement si elle est complète et si tous ses facteurs partagent unité, périmètre (`operation` ou `life_cycle`) et statut de données. Sa `comparisonKey` encode la version de méthodologie, l’indicateur, l’unité, le périmètre et le statut. Le comparateur refuse explicitement :
+Une estimation est comparable uniquement si elle est complète et si tous ses facteurs partagent unité, périmètre (`operation` ou `life_cycle`) et statut de facteur. Sa `comparisonKey` encode la version de méthodologie, l’indicateur, l’unité, le périmètre, la provenance du trajet (`real` ou `demo`) et le statut des facteurs. Deux estimations homogènes de démonstration peuvent donc être comparées entre elles, mais une estimation réelle et une estimation de démonstration n’ont jamais la même clé, même si elles emploient le même facteur vérifié. Le comparateur refuse explicitement :
 
 - les estimations partielles ou indisponibles ;
 - les unités différentes ;

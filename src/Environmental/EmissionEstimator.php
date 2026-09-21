@@ -39,7 +39,6 @@ final class EmissionEstimator
         $knownDistance = 0.0;
         $allDistancesKnown = true;
         $perTraveler = 0.0;
-        $group = 0.0;
 
         foreach ($legs as $leg) {
             $this->validateLeg($leg);
@@ -80,34 +79,35 @@ final class EmissionEstimator
                 );
             }
             $legGroup = $legPerTraveler * $travelers;
-            $legPerTraveler = $this->round($legPerTraveler);
-            $legGroup = $this->round($legGroup);
             $coveredDistance += $distance;
             $perTraveler += $legPerTraveler;
-            $group += $legGroup;
             $usedFactors[$factor['id']] = $factor;
             $synthetic = $factor['status'] === 'synthetic_test';
+            $demo = $dataStatus === 'demo' || $synthetic;
             $legEstimates[] = [
                 'legId' => $leg['id'],
-                'status' => $synthetic ? 'demo' : 'complete',
-                'kgCO2ePerTraveler' => $legPerTraveler,
-                'kgCO2eGroup' => $legGroup,
+                'status' => $demo ? 'demo' : 'complete',
+                'kgCO2ePerTraveler' => $this->round($legPerTraveler),
+                'kgCO2eGroup' => $this->round($legGroup),
                 'factorId' => $factor['id'],
-                'reason' => $synthetic ? 'Calcul de démonstration avec facteur synthétique.' : null,
+                'reason' => $dataStatus === 'demo'
+                    ? 'Calcul de démonstration (provenance des données du trajet).'
+                    : ($synthetic ? 'Calcul de démonstration avec facteur synthétique.' : null),
             ];
         }
 
         $covered = count($usedFactors) > 0 || array_any($legEstimates, static fn (array $leg): bool => $leg['kgCO2ePerTraveler'] !== null);
         $allCovered = array_all($legEstimates, static fn (array $leg): bool => $leg['status'] !== 'unavailable');
-        $synthetic = array_any($usedFactors, static fn (array $factor): bool => $factor['status'] === 'synthetic_test');
-        $status = !$covered ? 'unavailable' : (!$allCovered ? 'partial' : ($synthetic ? 'demo' : 'complete'));
+        $demo = $dataStatus === 'demo'
+            || array_any($usedFactors, static fn (array $factor): bool => $factor['status'] === 'synthetic_test');
+        $status = !$covered ? 'unavailable' : ($demo ? 'demo' : (!$allCovered ? 'partial' : 'complete'));
         $comparable = $allCovered && $this->hasHomogeneousMethod($usedFactors);
-        $comparisonKey = $comparable ? $this->comparisonKey($usedFactors) : null;
+        $comparisonKey = $comparable ? $this->comparisonKey($usedFactors, $dataStatus) : null;
 
         return [
             'status' => $status,
             'kgCO2ePerTraveler' => $covered ? $this->round($perTraveler) : null,
-            'kgCO2eGroup' => $covered ? $this->round($group) : null,
+            'kgCO2eGroup' => $covered ? $this->round($perTraveler * $travelers) : null,
             'coveredDistanceKm' => $this->round($coveredDistance),
             'totalDistanceKm' => $allDistancesKnown ? $this->round($knownDistance) : null,
             'comparable' => $comparable,
@@ -195,10 +195,10 @@ final class EmissionEstimator
     }
 
     /** @param array<string, array<string, mixed>> $factors */
-    private function comparisonKey(array $factors): string
+    private function comparisonKey(array $factors, string $dataStatus): string
     {
         $factor = reset($factors);
-        return implode('|', [self::METHODOLOGY_VERSION, 'kgCO2e', $factor['unit'], $factor['scope'], $factor['status']]);
+        return implode('|', [self::METHODOLOGY_VERSION, 'kgCO2e', $factor['unit'], $factor['scope'], $dataStatus, $factor['status']]);
     }
 
     private function round(float $value): float
