@@ -6,6 +6,7 @@ namespace App\Demo;
 
 use App\Environmental\EmissionEstimator;
 use App\Provider\JourneyProvider;
+use App\Provider\JourneyProviderMetadata;
 use App\Trip\DirectionResult;
 use App\Trip\DirectionStatus;
 use App\Trip\JourneyQuery;
@@ -13,6 +14,15 @@ use App\Trip\JourneyQuery;
 final class DemoJourneyProvider implements JourneyProvider
 {
     public function __construct(private readonly EmissionEstimator $estimator) {}
+
+    public function metadata(): JourneyProviderMetadata
+    {
+        return new JourneyProviderMetadata(
+            'demo',
+            [DemoData::source()],
+            ['Résultats de démonstration hors ligne; aucune offre réelle ni fallback de fournisseur.'],
+        );
+    }
 
     public function search(JourneyQuery $query): DirectionResult
     {

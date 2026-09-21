@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Controller\Api;
 
-use App\Demo\DemoPlaceCatalog;
 use App\Http\ApiProblemException;
+use App\Provider\PlaceProvider;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Attribute\Route;
@@ -13,7 +13,7 @@ use Symfony\Component\Routing\Attribute\Route;
 final class PlacesController
 {
     #[Route('/api/v1/places', name: 'places', methods: ['GET'])]
-    public function __invoke(Request $request, DemoPlaceCatalog $catalog): JsonResponse
+    public function __invoke(Request $request, PlaceProvider $catalog): JsonResponse
     {
         $q = $request->query->get('q', '');
         $limit = filter_var($request->query->get('limit', 20), FILTER_VALIDATE_INT);

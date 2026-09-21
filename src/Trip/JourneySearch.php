@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Trip;
 
-use App\Demo\DemoData;
 use App\Provider\JourneyProvider;
 use App\Provider\ProviderUnavailable;
 
@@ -27,11 +26,12 @@ final class JourneySearch
         $wireRequest = $request;
         $wireRequest['departureDate'] = $request['departureDate']->format('Y-m-d');
         $wireRequest['returnDate'] = $request['returnDate']?->format('Y-m-d');
+        $metadata = $this->provider->metadata();
         return [
-            'dataMode' => 'demo', 'request' => $wireRequest,
+            'dataMode' => $metadata->dataMode, 'request' => $wireRequest,
             'outbound' => $this->wire($outbound), 'inbound' => $this->wire($inbound),
-            'sources' => [DemoData::source()],
-            'warnings' => ['Résultats de démonstration hors ligne; aucune offre réelle ni fallback de fournisseur.'],
+            'sources' => $metadata->sources,
+            'warnings' => $metadata->warnings,
         ];
     }
 

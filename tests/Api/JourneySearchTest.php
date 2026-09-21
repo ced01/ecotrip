@@ -4,13 +4,26 @@ declare(strict_types=1);
 
 namespace App\Tests\Api;
 
+use App\Provider\JourneyProvider;
+use App\Provider\JourneyProviderMetadata;
+use App\Provider\ProviderUnavailable;
+use App\Trip\DirectionResult;
+use App\Trip\JourneyQuery;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 
 final class JourneySearchTest extends WebTestCase
 {
+    private string $clientIp;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->clientIp = '198.18.'.random_int(0, 255).'.'.random_int(1, 254);
+    }
+
     public function testCapabilitiesPlacesAndCoveredJourneyExposeHonestDemoData(): void
     {
-        $client = self::createClient();
+        $client = self::createClient([], ['REMOTE_ADDR' => $this->clientIp]);
 
         $client->request('GET', '/api/v1/capabilities');
         self::assertResponseIsSuccessful();
@@ -54,7 +67,7 @@ final class JourneySearchTest extends WebTestCase
 
     public function testModeFilterAndReturnAreCalculatedSeparately(): void
     {
-        $client = self::createClient();
+        $client = self::createClient([], ['REMOTE_ADDR' => $this->clientIp]);
         $client->jsonRequest('POST', '/api/v1/journeys/search', [
             'originId' => 'demo-paris',
             'destinationId' => 'demo-lyon',
@@ -79,7 +92,7 @@ final class JourneySearchTest extends WebTestCase
 
     public function testEmptyAndOutOfCoverageAreDistinctSuccessfulResults(): void
     {
-        $client = self::createClient();
+        $client = self::createClient([], ['REMOTE_ADDR' => $this->clientIp]);
         $client->jsonRequest('POST', '/api/v1/journeys/search', $this->request(['flight']));
         self::assertResponseIsSuccessful();
         $empty = json_decode($client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
@@ -95,10 +108,18 @@ final class JourneySearchTest extends WebTestCase
 
     public function testValidationMediaTypeBodyLimitAndMalformedJsonUseProblemJson(): void
     {
-        $client = self::createClient();
+        $client = self::createClient([], ['REMOTE_ADDR' => $this->clientIp]);
 
         $client->request('POST', '/api/v1/journeys/search', server: ['CONTENT_TYPE' => 'text/plain'], content: '{}');
         $this->assertProblem($client->getResponse(), 415, 'unsupported_media_type');
+
+        foreach (['application/jsonp', 'application/json-patch+json'] as $mediaType) {
+            $client->request('POST', '/api/v1/journeys/search', server: ['CONTENT_TYPE' => $mediaType], content: '{}');
+            $this->assertProblem($client->getResponse(), 415, 'unsupported_media_type');
+        }
+
+        $client->request('POST', '/api/v1/journeys/search', server: ['CONTENT_TYPE' => 'application/json; charset=utf-8'], content: json_encode($this->request(['train']), JSON_THROW_ON_ERROR));
+        self::assertResponseIsSuccessful();
 
         $client->request('POST', '/api/v1/journeys/search', server: ['CONTENT_TYPE' => 'application/json'], content: '{');
         $this->assertProblem($client->getResponse(), 400, 'invalid_json');
@@ -117,28 +138,42 @@ final class JourneySearchTest extends WebTestCase
 
     public function testUnknownPlaceIsValidationErrorAndQuotaReturnsRetryAfter(): void
     {
-        $client = self::createClient();
+        $client = self::createClient([], ['REMOTE_ADDR' => $this->clientIp]);
         $unknown = $this->request(['train']);
         $unknown['originId'] = 'unknown-place';
         $client->jsonRequest('POST', '/api/v1/journeys/search', $unknown);
         $this->assertProblem($client->getResponse(), 422, 'validation_failed');
 
         self::ensureKernelShutdown();
-        $client = self::createClient();
-        $client->disableReboot();
+        $client = self::createClient([], ['REMOTE_ADDR' => '198.19.'.random_int(0, 255).'.'.random_int(1, 254)]);
         for ($i = 0; $i < 20; ++$i) {
             $client->jsonRequest('POST', '/api/v1/journeys/search', $this->request(['train']));
             self::assertResponseIsSuccessful();
         }
         $client->jsonRequest('POST', '/api/v1/journeys/search', $this->request(['train']));
         $this->assertProblem($client->getResponse(), 429, 'rate_limited');
-        self::assertResponseHeaderSame('retry-after', '60');
+        $retryAfter = (int) $client->getResponse()->headers->get('retry-after');
+        self::assertGreaterThan(0, $retryAfter);
+        self::assertLessThanOrEqual(60, $retryAfter);
+    }
+
+    public function testTotalProviderFailureIsExposedAs503ProblemJson(): void
+    {
+        $client = self::createClient([], ['REMOTE_ADDR' => $this->clientIp]);
+        self::getContainer()->set(JourneyProvider::class, new class implements JourneyProvider {
+            public function search(JourneyQuery $query): DirectionResult { throw new ProviderUnavailable('upstream secret'); }
+            public function metadata(): JourneyProviderMetadata { return new JourneyProviderMetadata('real', [], []); }
+        });
+
+        $client->jsonRequest('POST', '/api/v1/journeys/search', $this->request(['train']));
+        $this->assertProblem($client->getResponse(), 503, 'provider_unavailable');
+        self::assertStringNotContainsString('secret', $client->getResponse()->getContent());
     }
 
 
     public function testImplementedResponsesMatchCheckedContractExamples(): void
     {
-        $client = self::createClient();
+        $client = self::createClient([], ['REMOTE_ADDR' => $this->clientIp]);
         $root = dirname(__DIR__, 2).'/docs/examples/';
 
         $client->request('GET', '/api/v1/capabilities');

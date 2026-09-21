@@ -6,6 +6,18 @@ framework:
   http_method_override: false
   php_errors:
     log: true
+  lock: 'flock'
+  cache:
+    pools:
+      cache.journey_search_rate_limiter:
+        adapter: cache.adapter.filesystem
+  rate_limiter:
+    journey_search:
+      policy: fixed_window
+      limit: 20
+      interval: '1 minute'
+      cache_pool: cache.journey_search_rate_limiter
+      lock_factory: lock.factory
   asset_mapper:
     paths: ['%kernel.project_dir%/assets/']
 when@test:

@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 namespace App\Trip;
 
-use App\Demo\DemoPlaceCatalog;
 use App\Http\ApiProblemException;
+use App\Provider\PlaceProvider;
 
 final class JourneyRequestValidator
 {
     private const MODES = ['train', 'coach', 'walk', 'public_transport', 'bicycle', 'carpool', 'flight'];
 
-    public function __construct(private readonly DemoPlaceCatalog $places) {}
+    public function __construct(private readonly PlaceProvider $places) {}
 
     /** @param mixed $input @return array<string, mixed> */
     public function validate(mixed $input, \DateTimeImmutable $today): array

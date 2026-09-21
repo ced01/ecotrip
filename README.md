@@ -46,6 +46,12 @@ curl -i -H 'Content-Type: application/json' -d '{"originId":"demo-paris","destin
 
 Résultats attendus : les routes implémentées retournent `200 application/json`; `/api/v1/accommodations`, encore non implémenté, retourne `404 application/problem+json` sans détail interne. Les trajets sont toujours marqués `demo`, les deux directions sont calculées séparément et aucune panne ne déclenche de fallback silencieux. `composer check` exécute PHPUnit, les lints conteneur/Twig/YAML, compile AssetMapper et valide le contrat avec ses six exemples JSON.
 
+### Quota et adresse cliente
+
+`POST /api/v1/journeys/search` est limité à 20 requêtes par minute et par adresse cliente. Le compteur Symfony RateLimiter est partagé entre requêtes et workers par le pool cache fichier, avec verrou inter-processus; une réponse dépassant le quota est un `429 application/problem+json` et indique le délai restant dans `Retry-After`. Pour un déploiement multi-hôte, remplacer ce pool par un cache partagé (par exemple Redis) tout en conservant le même limiteur.
+
+Par défaut, aucun proxy n’est approuvé : Symfony utilise l’adresse du pair TCP. Derrière un reverse proxy, configurer explicitement `framework.trusted_proxies` et `framework.trusted_headers` avec les seules adresses/plages du proxy administré avant d’utiliser `X-Forwarded-For`. Ne jamais approuver tous les proxies, sans quoi un client pourrait choisir sa clé de quota.
+
 Arrêt sans supprimer les données PostgreSQL :
 
 ```bash

@@ -4,9 +4,10 @@ declare(strict_types=1);
 
 namespace App\Demo;
 
+use App\Provider\CapabilitiesProvider;
 use App\Provider\PlaceProvider;
 
-final class DemoPlaceCatalog implements PlaceProvider
+final class DemoPlaceCatalog implements PlaceProvider, CapabilitiesProvider
 {
     /** @var list<array<string, mixed>> */
     private array $places;
