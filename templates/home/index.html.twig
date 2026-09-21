@@ -1,0 +1,113 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Ecotrip — Comparer un trajet démo{% endblock %}
+
+{% block body %}
+<header class="site-header">
+    <a class="brand" href="/" aria-label="Ecotrip, accueil">
+        <span class="brand-mark" aria-hidden="true">E</span>
+        <span>ecotrip</span>
+    </a>
+    <span class="demo-chip">Mode démo</span>
+</header>
+
+<main id="contenu">
+    <section class="hero" aria-labelledby="hero-title">
+        <div class="hero-copy">
+            <p class="eyebrow">Le voyage, en toute clarté</p>
+            <h1 id="hero-title">Voyager mieux commence par une comparaison honnête.</h1>
+            <p class="intro">Explorez différents modes de transport avec des données dont les limites restent visibles.</p>
+        </div>
+        <div class="route-art" aria-hidden="true">
+            <span class="art-dot art-dot-a"></span><span class="art-line"></span><span class="art-dot art-dot-b"></span>
+            <span class="art-label">A</span><span class="art-leaf">↗</span><span class="art-label art-label-b">B</span>
+        </div>
+    </section>
+
+    <aside class="demo-notice" data-demo-notice aria-label="Information sur les données">
+        <strong>Démonstration hors ligne</strong>
+        <span>Les lieux et résultats sont des fixtures contractuelles synthétiques. Aucun horaire, prix, disponibilité ou impact réel n’est fourni.</span>
+    </aside>
+
+    <section class="search-panel" aria-labelledby="search-title">
+        <div class="panel-heading">
+            <p class="step">01 · Votre trajet</p>
+            <h2 id="search-title">Où souhaitez-vous aller&nbsp;?</h2>
+        </div>
+
+        <form data-search-form novalidate>
+            <div class="form-grid route-fields">
+                <div class="field">
+                    <label for="origin">Départ</label>
+                    <select id="origin" name="originId" required aria-describedby="origin-error">
+                        <option value="">Choisir une ville</option>
+                        {% for place in places %}<option value="{{ place.id }}">{{ place.name }}</option>{% endfor %}
+                    </select>
+                    <span class="field-error" id="origin-error" data-error-for="originId"></span>
+                </div>
+                <span class="route-arrow" aria-hidden="true">→</span>
+                <div class="field">
+                    <label for="destination">Destination</label>
+                    <select id="destination" name="destinationId" required aria-describedby="destination-error">
+                        <option value="">Choisir une ville</option>
+                        {% for place in places %}<option value="{{ place.id }}">{{ place.name }}</option>{% endfor %}
+                    </select>
+                    <span class="field-error" id="destination-error" data-error-for="destinationId"></span>
+                </div>
+            </div>
+
+            <div class="form-grid details-fields">
+                <div class="field">
+                    <label for="departure-date">Date de départ</label>
+                    <input id="departure-date" name="departureDate" type="date" required aria-describedby="departureDate-error">
+                    <span class="field-error" id="departureDate-error" data-error-for="departureDate"></span>
+                </div>
+                <div class="field">
+                    <label for="return-date">Date de retour <span>(facultatif)</span></label>
+                    <input id="return-date" name="returnDate" type="date" aria-describedby="returnDate-error">
+                    <span class="field-error" id="returnDate-error" data-error-for="returnDate"></span>
+                </div>
+                <div class="field">
+                    <label for="travelers">Voyageurs</label>
+                    <input id="travelers" name="travelers" type="number" inputmode="numeric" min="1" max="9" value="1" required aria-describedby="travelers-hint travelers-error">
+                    <span class="field-hint" id="travelers-hint">De 1 à 9 personnes</span>
+                    <span class="field-error" id="travelers-error" data-error-for="travelers"></span>
+                </div>
+            </div>
+
+            <fieldset class="modes" aria-describedby="modes-error">
+                <legend>Modes à comparer</legend>
+                <div class="mode-grid">
+                    {% set modes = {'train':'Train','coach':'Car','walk':'Marche','public_transport':'Transports publics','bicycle':'Vélo','carpool':'Covoiturage','flight':'Avion'} %}
+                    {% for value, label in modes %}
+                        <label class="mode-choice">
+                            <input type="checkbox" name="modes[]" value="{{ value }}"{% if value in ['train', 'coach'] %} checked{% endif %}>
+                            <span class="mode-symbol" aria-hidden="true">{{ loop.index < 7 ? ['▰','▱','●','◆','◇','◉'][loop.index0] : '▲' }}</span>
+                            <span>{{ label }}</span>
+                        </label>
+                    {% endfor %}
+                </div>
+                <span class="field-error" id="modes-error" data-error-for="modes"></span>
+            </fieldset>
+
+            <div class="form-action">
+                <p>Le scénario disponible illustre Paris → Lyon. Les autres trajets retournent un état vide explicite.</p>
+                <button class="search-button" type="submit"><span>Comparer les trajets</span><span aria-hidden="true">↗</span></button>
+            </div>
+        </form>
+    </section>
+
+    <section class="results" aria-labelledby="results-title">
+        <div class="results-heading">
+            <p class="step">02 · Comparaison</p>
+            <h2 id="results-title">Résultats de démonstration</h2>
+        </div>
+        <p class="status" role="status" aria-live="polite" data-status>Renseignez votre trajet pour afficher la fixture de démonstration.</p>
+        <div class="error-state" role="alert" data-error-state hidden></div>
+        <div class="results-list" data-results></div>
+    </section>
+</main>
+
+<footer><span>Ecotrip · démonstrateur</span><span>Données synthétiques · aucune réservation</span></footer>
+<script id="journeys-fixture" type="application/json">{{ journeys_fixture|json_encode|replace({'<': '\\u003C', '>': '\\u003E', '&': '\\u0026'})|raw }}</script>
+{% endblock %}

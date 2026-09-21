@@ -1,0 +1,7 @@
+{
+  "name": "ecotrip-frontend-tests",
+  "private": true,
+  "scripts": {
+    "test:ui": "node --test tests/Frontend/*.test.mjs"
+  }
+}
