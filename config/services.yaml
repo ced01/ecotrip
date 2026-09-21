@@ -5,3 +5,5 @@ services:
   App\:
     resource: '../src/'
     exclude: '../src/{Kernel.php,Trip,Environmental,Accommodation,Provider}/'
+  App\Provider\DemoAccommodationProvider: ~
+  App\Provider\AccommodationProvider: '@App\Provider\DemoAccommodationProvider'

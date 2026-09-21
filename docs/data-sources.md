@@ -2,7 +2,7 @@
 
 ## État actuel
 
-TASK-0001 n’intègre **aucune source réelle** et ne contient aucune donnée métier en base. Les objets `demo-*` de `docs/examples/` sont synthétiques : ils servent uniquement à stabiliser le contrat et ne doivent jamais être affichés comme horaires, disponibilités, prix, labels ou performances environnementales réels.
+TASK-0004 fournit un adaptateur d’hébergements **explicitement synthétique et hors ligne**; il n’intègre aucune source réelle et ne contient aucune donnée métier en base. Les objets `demo-*` servent aux tests et à la démonstration du contrat. Prix, caractéristiques, distances et certifications portent le statut `demo` et ne doivent jamais être affichés comme offres, disponibilités, labels ou performances environnementales réels. Aucune réservation n’est proposée.
 
 ## Sources candidates à instruire
 
@@ -27,7 +27,7 @@ Chaque valeur exposée doit référencer sa ou ses sources et conserver :
 - la méthode utilisée pour une distance ou un calcul ;
 - les hypothèses et avertissements nécessaires.
 
-`null` signifie inconnu; `0` représente seulement une valeur réellement nulle. Une déclaration d’un hébergeur ne devient pas une certification. Le statut `verified` d’une preuve exige organisme, référence et date de contrôle.
+`null` signifie inconnu; `0` représente seulement une valeur réellement nulle. Une proximité connue est accompagnée d’une distance mesurée dans la fixture; sinon proximité et distance restent inconnues. Une déclaration d’un hébergeur ne devient pas une certification. Toute certification exige organisme, référence et date de contrôle; une certification synthétique reste `demo`, et une preuve au-delà de sa date de validité devient `expired`.
 
 ## Qualité et défaillances
 

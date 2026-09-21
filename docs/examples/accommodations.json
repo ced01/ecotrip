@@ -7,7 +7,7 @@
       "destinationId": "demo-lyon",
       "dataStatus": "demo",
       "features": {
-        "bicycleParking": true,
+        "bicycleParking": null,
         "publicTransportNearby": null
       },
       "publicTransportDistanceMeters": null,
@@ -41,6 +41,6 @@
     }
   ],
   "warnings": [
-    "Aucune certification, prix ou disponibilité annoncés."
+    "Aucune certification, prix ou disponibilité réels annoncés."
   ]
 }
