@@ -13,14 +13,12 @@ final class HomeController extends AbstractController
     {
         try {
             $places = json_decode((string) file_get_contents($projectDir.'/docs/examples/places.json'), true, flags: JSON_THROW_ON_ERROR);
-            $journeys = json_decode((string) file_get_contents($projectDir.'/docs/examples/journeys.json'), true, flags: JSON_THROW_ON_ERROR);
         } catch (JsonException $exception) {
             throw new \RuntimeException('Invalid contractual UI fixture.', previous: $exception);
         }
 
         return $this->render('home/index.html.twig', [
             'places' => $places['items'],
-            'journeys_fixture' => $journeys,
         ]);
     }
 }

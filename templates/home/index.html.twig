@@ -25,8 +25,8 @@
     </section>
 
     <aside class="demo-notice" data-demo-notice aria-label="Information sur les données">
-        <strong>Démonstration hors ligne</strong>
-        <span>Les lieux et résultats sont des fixtures contractuelles synthétiques. Aucun horaire, prix, disponibilité ou impact réel n’est fourni.</span>
+        <strong>Démonstration — données synthétiques</strong>
+        <span>La recherche interroge réellement l’API Ecotrip, actuellement alimentée par des scénarios synthétiques. Aucun horaire, prix, disponibilité ou impact réel n’est fourni.</span>
     </aside>
 
     <section class="search-panel" aria-labelledby="search-title">
@@ -35,7 +35,7 @@
             <h2 id="search-title">Où souhaitez-vous aller&nbsp;?</h2>
         </div>
 
-        <form data-search-form novalidate>
+        <form data-search-form data-endpoint="/api/v1/journeys/search" novalidate>
             <div class="form-grid route-fields">
                 <div class="field">
                     <label for="origin">Départ</label>
@@ -91,7 +91,7 @@
             </fieldset>
 
             <div class="form-action">
-                <p>Le scénario disponible illustre Paris → Lyon. Les autres trajets retournent un état vide explicite.</p>
+                <p>Le fournisseur démo couvre Paris ↔ Lyon. Les limites, données manquantes et indisponibilités restent affichées.</p>
                 <button class="search-button" type="submit"><span>Comparer les trajets</span><span aria-hidden="true">↗</span></button>
             </div>
         </form>
@@ -100,14 +100,30 @@
     <section class="results" aria-labelledby="results-title">
         <div class="results-heading">
             <p class="step">02 · Comparaison</p>
-            <h2 id="results-title">Résultats de démonstration</h2>
+            <h2 id="results-title" tabindex="-1">Comparaison des itinéraires</h2>
         </div>
-        <p class="status" role="status" aria-live="polite" data-status>Renseignez votre trajet pour afficher la fixture de démonstration.</p>
+        <div class="comparison-toolbar" data-toolbar hidden>
+            <label for="result-sort">Trier sans score combiné</label>
+            <select id="result-sort" data-sort>
+                <option value="api">Ordre fourni par l’API</option>
+                <option value="duration">Durée totale croissante</option>
+                <option value="transfers">Correspondances croissantes</option>
+                <option value="carbon">Émissions par voyageur croissantes</option>
+            </select>
+            <p data-sort-explanation>Chaque critère est indépendant : aucun score caché n’est calculé.</p>
+        </div>
+        <p class="status" role="status" aria-live="polite" aria-atomic="true" data-status>Renseignez votre trajet pour interroger l’API Ecotrip.</p>
         <div class="error-state" role="alert" data-error-state hidden></div>
-        <div class="results-list" data-results></div>
+        <div class="results-list" data-results aria-live="polite" aria-label="Itinéraires comparés"></div>
+        <aside class="methodology" data-methodology hidden aria-labelledby="methodology-title">
+            <h3 id="methodology-title">Sources et méthode</h3>
+            <div data-global-warnings></div>
+            <ul data-sources></ul>
+            <p>Les émissions sont affichées par personne et pour le groupe. Le tri carbone exclut les estimations manquantes, partielles, non comparables ou de méthodologies incompatibles.</p>
+            <a href="/api/v1/methodology">Consulter la méthodologie complète (JSON)</a>
+        </aside>
     </section>
 </main>
 
 <footer><span>Ecotrip · démonstrateur</span><span>Données synthétiques · aucune réservation</span></footer>
-<script id="journeys-fixture" type="application/json">{{ journeys_fixture|json_encode|replace({'<': '\\u003C', '>': '\\u003E', '&': '\\u0026'})|raw }}</script>
 {% endblock %}

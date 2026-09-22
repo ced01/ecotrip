@@ -25,6 +25,9 @@ final class HomepageTest extends WebTestCase
         self::assertSelectorCount(7, 'input[name="modes[]"][type="checkbox"]');
         self::assertSelectorExists('[role="status"][aria-live="polite"]');
         self::assertSelectorExists('[role="alert"][hidden]');
+        self::assertSelectorExists('select[data-sort]');
+        self::assertSelectorExists('[data-results][aria-live="polite"]');
+        self::assertSelectorExists('[data-methodology]');
         self::assertSelectorTextContains('[data-demo-notice]', 'Démonstration');
         self::assertStringContainsString(
             '"ecotrip/search-core"',
@@ -36,9 +39,8 @@ final class HomepageTest extends WebTestCase
         self::assertContains('demo-paris', $options);
         self::assertContains('demo-lyon', $options);
 
-        $fixture = json_decode((string) file_get_contents(__DIR__.'/../../docs/examples/journeys.json'), true, flags: JSON_THROW_ON_ERROR);
-        $embedded = json_decode($crawler->filter('#journeys-fixture')->text(), true, flags: JSON_THROW_ON_ERROR);
-        self::assertSame($fixture, $embedded, 'The UI demo must use the contractual fixture without presenting a real integration.');
+        self::assertSelectorNotExists('#journeys-fixture');
+        self::assertStringContainsString('/api/v1/journeys/search', (string) $client->getResponse()->getContent());
     }
 
     public function testImplementedJourneyEndpointRejectsAnInvalidRequestWithAContractProblem(): void
