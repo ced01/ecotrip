@@ -1,6 +1,7 @@
 <?php
 return [
     'app' => ['path' => './assets/app.js', 'entrypoint' => true],
+    'ecotrip/search-app' => ['path' => './assets/search/search-app.mjs'],
     'ecotrip/search-core' => ['path' => './assets/search/search-core.mjs'],
     'ecotrip/search-presentation' => ['path' => './assets/search/search-presentation.mjs'],
     '@hotwired/stimulus' => ['version' => '3.2.2'],
