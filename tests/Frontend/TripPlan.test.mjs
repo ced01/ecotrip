@@ -1,0 +1,121 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {
+  AccommodationFlow,
+  HttpAccommodationAdapter,
+  createTripPlan,
+  formatSavedAge,
+  normalizeAccommodationResponse,
+  reconcileAccommodationSelection,
+  restoreTripPlan,
+  saveTripPlan,
+  loadTripPlan,
+  clearTripPlan,
+} from '../../assets/plan/trip-plan-core.mjs';
+
+const request = {
+  originId: 'demo-paris', destinationId: 'demo-lyon', departureDate: '2027-01-15',
+  returnDate: '2027-01-18', travelers: 2, modes: ['train', 'coach'],
+};
+const provenance = { status: 'demo', sourceIds: ['demo-source'], asOf: null, note: 'Synthétique.' };
+const source = { id: 'demo-source', publisher: 'Démo', url: null, license: null, accessedAt: null, version: '1', reuseNotes: 'Test.', dataStatus: 'demo' };
+const itinerary = (id, direction) => ({
+  id, direction, requestedDate: direction === 'outbound' ? request.departureDate : request.returnDate,
+  dataStatus: 'demo', legs: [{ id: `${id}-leg`, mode: 'train', subtype: null, originId: direction === 'outbound' ? request.originId : request.destinationId, destinationId: direction === 'outbound' ? request.destinationId : request.originId, durationMinutes: 120, waitingMinutes: 0, distance: { km: 100, method: 'scenario', provenance }, schedule: { departureAt: null, arrivalAt: null, provenance }, provenance }],
+  durationMinutes: 120, transfers: 0,
+  emissions: { status: 'demo', kgCO2ePerTraveler: 2, kgCO2eGroup: 4, coveredDistanceKm: 100, totalDistanceKm: 100, comparable: true, comparisonKey: 'demo-key', methodologyVersion: 'v1', assumptions: ['Hypothèse démo'], legs: [], factors: [] },
+  provenance, warnings: ['Horaire non réel.'],
+});
+const accommodation = {
+  id: 'demo-stay', name: 'Séjour démo', destinationId: 'demo-lyon', dataStatus: 'demo',
+  features: { bicycleParking: null, publicTransportNearby: true }, publicTransportDistanceMeters: 180,
+  price: { amount: 89, currency: 'EUR', basis: 'night_per_room', asOf: '2026-09-01', sourceId: 'demo-source', dataStatus: 'demo' },
+  evidence: [{ id: 'declaration', claim: 'Déclaration synthétique', kind: 'declaration', status: 'declared', organization: null, referenceUrl: null, validFrom: null, validUntil: null, checkedAt: null, sourceId: 'demo-source' }],
+  provenance,
+};
+const accommodationPayload = { status: 'complete', items: [accommodation], page: { limit: 20, offset: 0, total: 1 }, sources: [source], warnings: ['Aucune disponibilité annoncée.'] };
+const journeys = {
+  request, outbound: { status: 'complete', itineraries: [itinerary('out', 'outbound')], warnings: [] },
+  inbound: { status: 'complete', itineraries: [itinerary('back', 'inbound')], warnings: [] },
+  sources: [source], warnings: ['Données démo.'],
+};
+
+test('accommodation adapter sends only contractual destination and feature filters', async () => {
+  let call;
+  const adapter = new HttpAccommodationAdapter('/api/v1/accommodations', async (url, options) => {
+    call = { url, options };
+    return { ok: true, status: 200, json: async () => accommodationPayload };
+  });
+  const result = await adapter.search({ destinationId: 'demo-lyon', bicycleParking: 'unknown', publicTransportNearby: '', limit: 20 });
+  assert.equal(call.url, '/api/v1/accommodations?destinationId=demo-lyon&bicycleParking=unknown&limit=20');
+  assert.equal(call.options.method, 'GET');
+  assert.equal(result.items[0].features.bicycleParking, null);
+});
+
+test('normalization preserves complete, empty and out-of-coverage statuses and rejects malformed payloads', () => {
+  for (const status of ['complete', 'empty', 'out_of_coverage']) {
+    const value = normalizeAccommodationResponse({ ...accommodationPayload, status, items: status === 'complete' ? [accommodation] : [] });
+    assert.equal(value.status, status);
+  }
+  assert.throws(() => normalizeAccommodationResponse({ status: 'complete', items: 'hostile' }), /incomplète/i);
+});
+
+test('accommodation flow exposes loading, Problem JSON and redacted network errors', async () => {
+  const states = [];
+  await new AccommodationFlow({ search: async () => { throw Object.assign(new Error('secret'), { name: 'AccommodationProblem', status: 503, code: 'provider_unavailable', detail: 'Indisponible.', violations: [] }); } }, state => states.push(state)).search({ destinationId: 'demo-lyon' });
+  assert.deepEqual(states.map(({ kind }) => kind), ['loading', 'problem']);
+  const network = [];
+  await new AccommodationFlow({ search: async () => { throw new Error('network secret'); } }, state => network.push(state)).search({ destinationId: 'demo-lyon' });
+  assert.equal(network.at(-1).kind, 'network_error');
+  assert.equal(JSON.stringify(network.at(-1)).includes('network secret'), false);
+});
+
+test('selection is invalidated explicitly when destination or filtered results become incompatible', () => {
+  const selected = { item: accommodation, destinationId: 'demo-lyon', queryKey: 'demo-lyon|any|any' };
+  assert.equal(reconcileAccommodationSelection(selected, { destinationId: 'demo-lyon' }, [accommodation]).selection.item.id, 'demo-stay');
+  assert.match(reconcileAccommodationSelection(selected, { destinationId: 'demo-paris' }, []).reason, /destination/i);
+  assert.match(reconcileAccommodationSelection(selected, { destinationId: 'demo-lyon' }, []).reason, /filtres/i);
+});
+
+test('trip plan supports optional return and accommodation while preserving evidence and sources', () => {
+  const withStay = createTripPlan(journeys, 'out', 'back', accommodation, accommodationPayload.sources);
+  assert.equal(withStay.outbound.warnings[0], 'Horaire non réel.');
+  assert.equal(withStay.outbound.emissions.assumptions[0], 'Hypothèse démo');
+  assert.equal(withStay.accommodation.evidence[0].status, 'declared');
+  assert.deepEqual(withStay.sources.map(({ id }) => id), ['demo-source']);
+  const minimal = createTripPlan(journeys, 'out', null, null, []);
+  assert.equal(minimal.inbound, null);
+  assert.equal(minimal.accommodation, null);
+});
+
+test('voluntary persistence is versioned, dated, restorable and reports age', () => {
+  const memory = new Map();
+  const storage = { setItem: (key, value) => memory.set(key, value), getItem: key => memory.get(key) ?? null, removeItem: key => memory.delete(key) };
+  const plan = createTripPlan(journeys, 'out', 'back', accommodation, accommodationPayload.sources);
+  const saved = saveTripPlan(storage, plan, new Date('2026-09-22T10:00:00.000Z'));
+  assert.equal(saved.ok, true);
+  const restored = loadTripPlan(storage);
+  assert.equal(restored.ok, true);
+  assert.equal(restored.plan.schemaVersion, 1);
+  assert.equal(restored.plan.savedAt, '2026-09-22T10:00:00.000Z');
+  assert.equal(restored.plan.accommodation.id, 'demo-stay');
+  assert.equal(formatSavedAge(restored.plan.savedAt, new Date('2026-09-22T12:30:00.000Z')), 'sauvegardé il y a 2 h');
+  assert.equal(clearTripPlan(storage).ok, true);
+  assert.equal(loadTripPlan(storage).reason, 'absent');
+});
+
+test('restoration rejects corruption, unknown versions and incompatible destination data', () => {
+  assert.equal(restoreTripPlan('{').reason, 'corrupt');
+  const plan = { ...createTripPlan(journeys, 'out', null, accommodation, [source]), schemaVersion: 1, savedAt: '2026-09-22T10:00:00.000Z' };
+  assert.equal(restoreTripPlan(JSON.stringify({ ...plan, schemaVersion: 99 })).reason, 'unknown_version');
+  assert.equal(restoreTripPlan(JSON.stringify({ ...plan, accommodation: { ...accommodation, destinationId: 'demo-paris' } })).reason, 'incompatible');
+  assert.equal(restoreTripPlan(JSON.stringify({ ...plan, outbound: { id: 'incomplete' } })).reason, 'invalid');
+});
+
+test('storage refusal never throws during save, load or clear', () => {
+  const refused = { setItem: () => { throw new Error('denied'); }, getItem: () => { throw new Error('denied'); }, removeItem: () => { throw new Error('denied'); } };
+  const plan = createTripPlan(journeys, 'out', null, null, []);
+  assert.equal(saveTripPlan(refused, plan, new Date()).reason, 'unavailable');
+  assert.equal(loadTripPlan(refused).reason, 'unavailable');
+  assert.equal(clearTripPlan(refused).reason, 'unavailable');
+});

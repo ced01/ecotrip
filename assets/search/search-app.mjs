@@ -54,6 +54,7 @@ function initialise(form) {
     methodology.hidden = false;
     renderMethodology(methodology, state);
     renderDirections(results, state, sort.value, sortExplanation);
+    document.dispatchEvent(new CustomEvent('ecotrip:journeys-loaded', { detail: state }));
     const count = state.outbound.itineraries.length + state.inbound.itineraries.length;
     status.textContent = `${count} itinéraire${count > 1 ? 's' : ''} reçu${count > 1 ? 's' : ''}. Aller et retour sont présentés séparément.`;
     title.focus({ preventScroll: true });
@@ -84,6 +85,7 @@ function initialise(form) {
       form.querySelector('[aria-invalid="true"]')?.focus();
       return;
     }
+    document.dispatchEvent(new CustomEvent('ecotrip:search-start', { detail: request }));
     flow.search(request);
   });
 }
@@ -204,6 +206,16 @@ function createResultCard(itinerary, travelers, carbonExcluded) {
   const badge = element('span', itinerary.dataStatus === 'demo' ? 'Donnée synthétique — non réservable' : `Statut : ${itinerary.dataStatus ?? 'inconnu'}`);
   badge.className = 'result-badge';
   card.append(badge);
+  const choose = element('button', itinerary.direction === 'inbound' ? 'Choisir ce retour' : 'Choisir cet aller');
+  choose.type = 'button';
+  choose.className = 'plan-choice';
+  choose.setAttribute('aria-pressed', 'false');
+  choose.addEventListener('click', () => {
+    document.dispatchEvent(new CustomEvent('ecotrip:itinerary-selected', { detail: { direction: itinerary.direction, id: itinerary.id } }));
+    choose.textContent = itinerary.direction === 'inbound' ? 'Retour ajouté au plan' : 'Aller ajouté au plan';
+    choose.closest('.direction-results')?.querySelectorAll('.plan-choice').forEach(button => button.setAttribute('aria-pressed', button === choose ? 'true' : 'false'));
+  });
+  card.append(choose);
   return card;
 }
 

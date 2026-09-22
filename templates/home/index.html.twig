@@ -123,6 +123,51 @@
             <a href="/api/v1/methodology">Consulter la méthodologie complète (JSON)</a>
         </aside>
     </section>
+
+    <section class="accommodations" data-accommodations data-endpoint="/api/v1/accommodations" aria-labelledby="accommodations-title" hidden>
+        <div class="results-heading">
+            <p class="step">03 · Séjour facultatif</p>
+            <h2 id="accommodations-title" tabindex="-1">Hébergements à destination</h2>
+        </div>
+        <form class="accommodation-filters" data-accommodation-filters>
+            <div class="field">
+                <label for="bicycle-parking">Stationnement vélo</label>
+                <select id="bicycle-parking" name="bicycleParking">
+                    <option value="">Tous les états</option><option value="true">Oui</option><option value="false">Non</option><option value="unknown">Inconnu</option>
+                </select>
+            </div>
+            <div class="field">
+                <label for="public-transport">Transports publics à proximité</label>
+                <select id="public-transport" name="publicTransportNearby">
+                    <option value="">Tous les états</option><option value="true">Oui</option><option value="false">Non</option><option value="unknown">Inconnu</option>
+                </select>
+            </div>
+            <button type="submit" class="secondary-button">Appliquer les filtres</button>
+        </form>
+        <p class="status" role="status" aria-live="polite" aria-atomic="true" data-accommodation-status></p>
+        <div class="error-state" role="alert" data-accommodation-error hidden></div>
+        <div class="accommodation-list" data-accommodation-list aria-live="polite"></div>
+        <aside class="methodology" data-accommodation-methodology hidden>
+            <h3>Sources et avertissements du catalogue</h3>
+            <div data-accommodation-warnings></div><ul data-accommodation-sources></ul>
+        </aside>
+    </section>
+
+    <section class="trip-plan" data-trip-plan aria-labelledby="trip-plan-title">
+        <div class="results-heading">
+            <p class="step">04 · Votre plan local</p>
+            <h2 id="trip-plan-title" tabindex="-1">Récapitulatif du voyage</h2>
+        </div>
+        <p class="status" role="status" aria-live="polite" aria-atomic="true" data-plan-status>Choisissez au minimum un trajet aller. L’hébergement et le retour restent facultatifs.</p>
+        <div data-plan-summary></div>
+        <div class="plan-actions">
+            <button type="button" class="search-button" data-plan-save disabled>Sauvegarder sur cet appareil</button>
+            <button type="button" class="secondary-button" data-plan-restore>Restaurer la sauvegarde</button>
+            <button type="button" class="secondary-button danger-button" data-plan-clear>Effacer la sauvegarde</button>
+            <button type="button" class="secondary-button" data-plan-print disabled>Imprimer le plan</button>
+        </div>
+        <p class="saved-meta" data-saved-meta></p>
+    </section>
 </main>
 
 <footer><span>Ecotrip · démonstrateur</span><span>Données synthétiques · aucune réservation</span></footer>

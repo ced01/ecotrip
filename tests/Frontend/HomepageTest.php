@@ -28,6 +28,14 @@ final class HomepageTest extends WebTestCase
         self::assertSelectorExists('select[data-sort]');
         self::assertSelectorExists('[data-results][aria-live="polite"]');
         self::assertSelectorExists('[data-methodology]');
+        self::assertSelectorExists('section[data-accommodations][data-endpoint="/api/v1/accommodations"]');
+        self::assertSelectorExists('form[data-accommodation-filters]');
+        self::assertSelectorExists('[data-accommodation-status][aria-live="polite"]');
+        self::assertSelectorExists('section[data-trip-plan]');
+        self::assertSelectorExists('button[data-plan-save][disabled]');
+        self::assertSelectorExists('button[data-plan-restore]');
+        self::assertSelectorExists('button[data-plan-clear]');
+        self::assertSelectorExists('button[data-plan-print][disabled]');
         self::assertSelectorTextContains('[data-demo-notice]', 'Démonstration');
         self::assertStringContainsString(
             '"ecotrip/search-core"',
@@ -39,6 +47,8 @@ final class HomepageTest extends WebTestCase
             (string) $client->getResponse()->getContent(),
             'The import map must expose the presentation dependency imported by search-app.mjs.',
         );
+        self::assertStringContainsString('"ecotrip/trip-plan-core"', (string) $client->getResponse()->getContent());
+        self::assertStringContainsString('"ecotrip/trip-plan-app"', (string) $client->getResponse()->getContent());
 
         $options = $crawler->filter('#origin option[value]')->each(static fn ($node): string => $node->attr('value'));
         self::assertContains('demo-paris', $options);
