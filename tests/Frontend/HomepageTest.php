@@ -34,6 +34,11 @@ final class HomepageTest extends WebTestCase
             (string) $client->getResponse()->getContent(),
             'The import map must expose the dependency imported by search-app.mjs.',
         );
+        self::assertStringContainsString(
+            '"ecotrip/search-presentation"',
+            (string) $client->getResponse()->getContent(),
+            'The import map must expose the presentation dependency imported by search-app.mjs.',
+        );
 
         $options = $crawler->filter('#origin option[value]')->each(static fn ($node): string => $node->attr('value'));
         self::assertContains('demo-paris', $options);

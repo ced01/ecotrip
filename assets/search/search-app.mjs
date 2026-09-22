@@ -1,5 +1,5 @@
 import { HttpJourneyAdapter, SearchFlow, carbonSortEligibility, sortItineraries, validateSearch } from 'ecotrip/search-core';
-import { formatCarbonFactor, formatProvenance, safeHttpUrl } from './search-presentation.mjs';
+import { formatCarbonFactor, formatProvenance, safeHttpUrl } from 'ecotrip/search-presentation';
 
 const form = document.querySelector('[data-search-form]');
 if (form) initialise(form);
