@@ -2348,6 +2348,18 @@
           "sources"
         ]
       },
+      "TripPlanWarnings": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "journeys": { "type": "array", "items": { "type": "string" } },
+          "outbound": { "type": "array", "items": { "type": "string" } },
+          "inbound": { "type": "array", "items": { "type": "string" } },
+          "accommodation": { "type": "array", "items": { "type": "string" } }
+        },
+        "required": ["journeys", "outbound", "inbound", "accommodation"],
+        "description": "Avertissements structurés conservés avec le brouillon, selon leur réponse d’origine."
+      },
       "TripPlan": {
         "type": "object",
         "additionalProperties": false,
@@ -2389,6 +2401,9 @@
             "items": {
               "$ref": "#/components/schemas/Source"
             }
+          },
+          "warnings": {
+            "$ref": "#/components/schemas/TripPlanWarnings"
           }
         },
         "required": [
@@ -2398,7 +2413,8 @@
           "outbound",
           "inbound",
           "accommodation",
-          "sources"
+          "sources",
+          "warnings"
         ],
         "description": "Format de brouillon local volontaire, jamais envoyé au serveur dans ce MVP; restaurer après validation, afficher ancienneté, permettre effacement."
       },

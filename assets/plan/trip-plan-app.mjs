@@ -53,6 +53,7 @@ function initialise(accommodationSection, planSection) {
     filterForm.querySelector('button').disabled = state.kind === 'loading';
     if (state.kind === 'loading') {
       accommodationStatus.textContent = 'Chargement des hébergements auprès de l’API Ecotrip…';
+      saveButton.disabled = true; printButton.disabled = true;
       accommodationList.append(skeleton(), skeleton());
       return;
     }
@@ -175,7 +176,10 @@ function initialise(accommodationSection, planSection) {
       return;
     }
     try {
-      currentPlan = createTripPlan(journeys, outboundId, inboundId, accommodationSelection?.item ?? null, accommodationResponse?.sources ?? []);
+      currentPlan = createTripPlan(
+        journeys, outboundId, inboundId, accommodationSelection?.item ?? null,
+        accommodationResponse?.sources ?? [], accommodationResponse?.warnings ?? [],
+      );
       renderPlan(currentPlan, planSummary);
       saveButton.disabled = false; printButton.disabled = false;
     } catch {
@@ -227,7 +231,15 @@ function initialise(accommodationSection, planSection) {
 
   filterForm.addEventListener('submit', event => {
     event.preventDefault();
-    if (destinationId) accommodationFlow.search(query());
+    const nextQuery = query();
+    if (accommodationSelection?.queryKey !== undefined && accommodationSelection.queryKey !== accommodationQueryKey(nextQuery)) {
+      const reconciled = reconcileAccommodationSelection(accommodationSelection, nextQuery, accommodationResponse?.items ?? []);
+      accommodationSelection = reconciled.selection;
+      if (reconciled.reason) announceInvalidation(reconciled.reason);
+      renderAccommodationCardsFresh();
+      updatePlan();
+    }
+    if (destinationId) accommodationFlow.search(nextQuery);
   });
 
   saveButton.addEventListener('click', () => {
@@ -282,6 +294,13 @@ function renderPlan(plan, container) {
   if (!plan.sources.length) sources.append(element('li', 'Source globale non renseignée.'));
   plan.sources.forEach(source => sources.append(sourceNode(source)));
   sourceDetails.append(sources);
+  const warningLabels = {
+    journeys: 'Recherche de trajets', outbound: 'Catalogue aller',
+    inbound: 'Catalogue retour', accommodation: 'Catalogue hébergements',
+  };
+  for (const [category, values] of Object.entries(plan.warnings ?? {})) {
+    values.forEach(message => sourceDetails.append(warningNode(`${warningLabels[category] ?? category} : ${message}`)));
+  }
   overview.append(sourceDetails);
   container.append(overview);
 }

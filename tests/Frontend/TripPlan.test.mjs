@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   AccommodationFlow,
   HttpAccommodationAdapter,
+  accommodationQueryKey,
   createTripPlan,
   formatSavedAge,
   normalizeAccommodationResponse,
@@ -118,4 +119,75 @@ test('storage refusal never throws during save, load or clear', () => {
   assert.equal(saveTripPlan(refused, plan, new Date()).reason, 'unavailable');
   assert.equal(loadTripPlan(refused).reason, 'unavailable');
   assert.equal(clearTripPlan(refused).reason, 'unavailable');
+});
+
+test('catalogue normalization recursively enforces the AccommodationsResponse contract', () => {
+  for (const payload of [
+    { ...accommodationPayload, garbage: true },
+    { ...accommodationPayload, page: { ...accommodationPayload.page, garbage: true } },
+    { ...accommodationPayload, sources: [{ ...source, url: 'javascript:alert(1)' }] },
+    { ...accommodationPayload, warnings: [42] },
+    { ...accommodationPayload, items: [{ ...accommodation, provenance: { ...provenance, status: 'hostile' } }] },
+    { ...accommodationPayload, items: [{ ...accommodation, price: { ...accommodation.price, asOf: '2026-02-30' } }] },
+    { ...accommodationPayload, items: [{ ...accommodation, evidence: [{ ...accommodation.evidence[0], status: 'verified' }] }] },
+  ]) assert.throws(() => normalizeAccommodationResponse(payload), /incomplète/i);
+});
+
+test('a changed accommodation query key invalidates selection before the next response', () => {
+  const selected = { item: accommodation, destinationId: 'demo-lyon', queryKey: 'demo-lyon|any|any' };
+  const query = { destinationId: 'demo-lyon', bicycleParking: 'true', publicTransportNearby: 'any' };
+  assert.notEqual(accommodationQueryKey(query), selected.queryKey);
+  assert.match(reconcileAccommodationSelection(selected, query, [accommodation]).reason, /filtres/i);
+});
+
+test('all four warning categories survive creation, save and restore', () => {
+  const warnedJourneys = structuredClone(journeys);
+  warnedJourneys.outbound.warnings = ['Catalogue aller partiel.'];
+  warnedJourneys.inbound.warnings = ['Catalogue retour partiel.'];
+  const plan = createTripPlan(warnedJourneys, 'out', 'back', accommodation, [source], accommodationPayload.warnings);
+  assert.deepEqual(plan.warnings, {
+    journeys: ['Données démo.'], outbound: ['Catalogue aller partiel.'],
+    inbound: ['Catalogue retour partiel.'], accommodation: ['Aucune disponibilité annoncée.'],
+  });
+  const memory = new Map();
+  const storage = { setItem: (key, value) => memory.set(key, value), getItem: key => memory.get(key) ?? null };
+  assert.equal(saveTripPlan(storage, plan, new Date('2026-09-22T10:00:00.000Z')).ok, true);
+  assert.deepEqual(loadTripPlan(storage).plan.warnings, plan.warnings);
+});
+
+test('snapshot validation is recursively exact and rejects adversarial shapes without throwing', () => {
+  const plan = { ...createTripPlan(journeys, 'out', 'back', accommodation, [source], accommodationPayload.warnings), schemaVersion: 1, savedAt: '2026-09-22T10:00:00.000Z' };
+  const mutations = [
+    value => { value.request.garbage = true; },
+    value => { value.request.departureDate = '2027-02-30'; },
+    value => { value.request.modes = ['train', 'train']; },
+    value => { value.outbound.legs[0].mode = 'teleport'; },
+    value => { value.outbound.legs[0].distance.garbage = true; },
+    value => { value.outbound.legs[0].schedule.departureAt = 'yesterday'; },
+    value => { value.outbound.provenance.sourceIds = ['UPPERCASE']; },
+    value => { value.outbound.emissions.factors = [{ id: 'factor', value: -1 }]; },
+    value => { value.accommodation.features.garbage = true; },
+    value => { value.accommodation.price.currency = 'EURO'; },
+    value => { value.accommodation.evidence[0].garbage = true; },
+    value => { value.sources[0].garbage = true; },
+    value => { value.warnings.outbound = [42]; },
+    value => { value.outbound.durationMinutes = 999; },
+    value => { value.outbound.legs[0].destinationId = 'demo-macon'; },
+  ];
+  for (const mutate of mutations) {
+    const hostile = structuredClone(plan); mutate(hostile);
+    assert.doesNotThrow(() => restoreTripPlan(JSON.stringify(hostile)));
+    assert.notEqual(restoreTripPlan(JSON.stringify(hostile)).ok, true);
+  }
+  assert.equal(restoreTripPlan(JSON.stringify({ ...plan, sources: Array(101).fill(source) })).reason, 'invalid');
+  assert.equal(restoreTripPlan(' '.repeat(1_100_000)).ok, false);
+});
+
+test('verified evidence obeys organization, HTTPS reference, checked date and validity rules', () => {
+  const verified = { ...accommodation.evidence[0], kind: 'certification', status: 'verified', organization: 'Label', referenceUrl: 'https://example.test/proof', checkedAt: '2026-09-01', validFrom: '2026-01-01', validUntil: '2027-01-01' };
+  assert.doesNotThrow(() => normalizeAccommodationResponse({ ...accommodationPayload, items: [{ ...accommodation, evidence: [verified] }] }));
+  for (const change of [
+    { organization: null }, { referenceUrl: 'http://example.test/proof' }, { checkedAt: null },
+    { kind: 'declaration' }, { validFrom: '2028-01-01' },
+  ]) assert.throws(() => normalizeAccommodationResponse({ ...accommodationPayload, items: [{ ...accommodation, evidence: [{ ...verified, ...change }] }] }), /incomplète/i);
 });
