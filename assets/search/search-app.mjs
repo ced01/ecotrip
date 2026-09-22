@@ -1,4 +1,5 @@
 import { HttpJourneyAdapter, SearchFlow, carbonSortEligibility, sortItineraries, validateSearch } from 'ecotrip/search-core';
+import { formatCarbonFactor, formatProvenance, safeHttpUrl } from './search-presentation.mjs';
 
 const form = document.querySelector('[data-search-form]');
 if (form) initialise(form);
@@ -181,11 +182,21 @@ function createResultCard(itinerary, travelers, carbonExcluded) {
     item.append(element('strong', `Étape ${index + 1} · ${modeName(leg.mode)}`));
     item.append(element('span', `${leg.originId ?? 'origine inconnue'} → ${leg.destinationId ?? 'destination inconnue'}`));
     item.append(element('span', `Trajet : ${formatDuration(leg.durationMinutes)} · attente : ${formatDuration(leg.waitingMinutes)} · distance : ${formatDistance(leg.distance?.km)}`));
-    item.append(element('small', `Méthode distance : ${leg.distance?.method ?? 'inconnue'}${leg.provenance?.note ? ` · ${leg.provenance.note}` : ''}`));
+    item.append(element('small', `Méthode distance : ${leg.distance?.method ?? 'inconnue'} · Provenance distance : ${formatProvenance(leg.distance?.provenance)}`));
     legs.append(item);
   });
   details.append(legs);
+  details.append(element('p', `Provenance de l’itinéraire : ${formatProvenance(itinerary.provenance)}.`));
   details.append(element('p', `Version de méthode carbone : ${itinerary.emissions?.methodologyVersion ?? 'inconnue'}. Clé de comparaison : ${itinerary.emissions?.comparisonKey ?? 'indisponible'}.`));
+  const factors = itinerary.emissions?.factors ?? [];
+  if (factors.length) {
+    details.append(element('h5', 'Facteurs carbone'));
+    const factorList = document.createElement('ul');
+    factors.forEach(factor => factorList.append(element('li', formatCarbonFactor(factor))));
+    details.append(factorList);
+  } else {
+    details.append(element('p', 'Facteurs carbone : non renseignés.'));
+  }
   (itinerary.emissions?.assumptions ?? []).forEach(value => details.append(warningNode(`Hypothèse : ${value}`)));
   (itinerary.warnings ?? []).forEach(value => details.append(warningNode(value)));
   card.append(details);
@@ -225,7 +236,8 @@ function renderMethodology(container, state) {
   state.sources.forEach(source => {
     const item = document.createElement('li');
     const label = `${source.publisher ?? source.id} — version ${source.version ?? 'inconnue'} — statut ${source.dataStatus ?? 'inconnu'}`;
-    if (source.url) { const link = element('a', label); link.href = source.url; item.append(link); } else item.append(document.createTextNode(label));
+    const href = safeHttpUrl(source.url);
+    if (href) { const link = element('a', label); link.href = href; item.append(link); } else item.append(document.createTextNode(label));
     if (source.reuseNotes) item.append(element('small', source.reuseNotes));
     sources.append(item);
   });
