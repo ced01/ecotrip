@@ -2,14 +2,14 @@
 
 namespace App\Tests\Api;
 
-use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 
 final class ProblemTest extends WebTestCase
 {
-    #[DataProvider('plannedEndpoints')]
-    public function testUnimplementedBusinessEndpointsAreHonest404Problems(string $method, string $path): void
+    public function testUnknownBusinessEndpointIsAnHonest404Problem(): void
     {
+        $method = 'GET';
+        $path = '/api/v1/not-implemented';
         $client = self::createClient();
         $client->request($method, $path);
         self::assertResponseStatusCodeSame(404);
@@ -20,10 +20,4 @@ final class ProblemTest extends WebTestCase
         self::assertStringNotContainsString('/app/', $client->getResponse()->getContent());
     }
 
-    public static function plannedEndpoints(): iterable
-    {
-        yield ['GET', '/api/v1/capabilities'];
-        yield ['GET', '/api/v1/places'];
-        yield ['POST', '/api/v1/journeys/search'];
-    }
 }

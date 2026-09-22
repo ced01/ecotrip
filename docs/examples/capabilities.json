@@ -11,6 +11,10 @@
     {
       "originId": "demo-paris",
       "destinationId": "demo-lyon"
+    },
+    {
+      "originId": "demo-lyon",
+      "destinationId": "demo-paris"
     }
   ],
   "limits": {
@@ -20,6 +24,6 @@
     "bookingAvailable": false
   },
   "warnings": [
-    "Fixture hors ligne, API métier non implémentée en TASK-0001."
+    "Catalogue et trajets entièrement synthétiques; aucune bascule vers un fournisseur réel."
   ]
 }

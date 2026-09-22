@@ -20,13 +20,17 @@ final class ProblemListener
         $codes = [400 => 'invalid_json', 404 => 'not_found', 405 => 'method_not_allowed', 413 => 'payload_too_large', 415 => 'unsupported_media_type', 422 => 'validation_failed', 429 => 'rate_limited', 503 => 'provider_unavailable'];
         $headers = $error instanceof \Symfony\Component\HttpKernel\Exception\HttpExceptionInterface ? $error->getHeaders() : [];
         $headers['Content-Type'] = 'application/problem+json';
-        $event->setResponse(new JsonResponse([
+        $body = [
             'type' => 'about:blank',
             'title' => \Symfony\Component\HttpFoundation\Response::$statusTexts[$status] ?? 'Error',
             'status' => $status,
             'detail' => $status >= 500 ? 'Service temporairement indisponible.' : 'La requête ne peut pas être traitée.',
             'instance' => $event->getRequest()->getPathInfo(),
-            'code' => $codes[$status] ?? 'internal_error',
-        ], $status, $headers));
+            'code' => $error instanceof ApiProblemException ? $error->problemCode : ($codes[$status] ?? 'internal_error'),
+        ];
+        if ($error instanceof ApiProblemException && $error->violations !== []) {
+            $body['violations'] = $error->violations;
+        }
+        $event->setResponse(new JsonResponse($body, $status, $headers));
     }
 }

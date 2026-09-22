@@ -4,6 +4,16 @@ services:
     autoconfigure: true
   App\:
     resource: '../src/'
-    exclude: '../src/{Kernel.php,Trip,Environmental,Accommodation,Provider}/'
+    exclude: '../src/{Kernel.php,Accommodation}/'
+
   App\Provider\DemoAccommodationProvider: ~
   App\Provider\AccommodationProvider: '@App\Provider\DemoAccommodationProvider'
+  App\Provider\PlaceProvider: '@App\Demo\DemoPlaceCatalog'
+  App\Provider\CapabilitiesProvider: '@App\Demo\DemoPlaceCatalog'
+  App\Provider\JourneyProvider: '@App\Demo\DemoJourneyProvider'
+  App\Environmental\EmissionFactorRepository: '@App\Demo\DemoEmissionFactorRepository'
+
+  App\Http\JourneySearchQuota:
+    arguments:
+      $limiter: '@limiter.journey_search'
+      $clock: '@clock'

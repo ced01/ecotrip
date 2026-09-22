@@ -41,12 +41,14 @@ final class HomepageTest extends WebTestCase
         self::assertSame($fixture, $embedded, 'The UI demo must use the contractual fixture without presenting a real integration.');
     }
 
-    public function testHomepageDoesNotExposeOrImplementAPlannedBusinessEndpoint(): void
+    public function testImplementedJourneyEndpointRejectsAnInvalidRequestWithAContractProblem(): void
     {
         $client = self::createClient(['debug' => true]);
         $client->request('POST', '/api/v1/journeys/search', server: ['CONTENT_TYPE' => 'application/json'], content: '{}');
 
-        self::assertResponseStatusCodeSame(404);
+        self::assertResponseStatusCodeSame(422);
         self::assertResponseHeaderSame('content-type', 'application/problem+json');
+        $problem = json_decode($client->getResponse()->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        self::assertSame('validation_failed', $problem['code']);
     }
 }
