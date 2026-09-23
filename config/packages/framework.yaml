@@ -2,6 +2,8 @@ framework:
   secret: '%env(APP_SECRET)%'
   router:
     utf8: true
+  trusted_proxies: '%env(TRUSTED_PROXIES)%'
+  trusted_headers: ['x-forwarded-for', 'x-forwarded-host', 'x-forwarded-proto', 'x-forwarded-port', 'x-forwarded-prefix']
   handle_all_throwables: true
   http_method_override: false
   php_errors:

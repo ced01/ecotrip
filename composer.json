@@ -50,13 +50,20 @@
     "config": {"allow-plugins": {"symfony/runtime": true}, "sort-packages": true, "platform": {"php": "8.4.19"}},
     "scripts": {
         "test": "php bin/phpunit",
-        "check": [
+        "check:backend": [
             "@test",
             "php bin/console lint:container",
             "php bin/console lint:twig templates",
-            "php bin/console lint:yaml config docs/openapi.yaml",
-            "php bin/console asset-map:compile",
-            "php tools/validate-contract.php"
+            "php bin/console lint:yaml config"
+        ],
+        "check:assets": "php bin/console asset-map:compile",
+        "check:contract": "php tools/validate-contract.php",
+        "check:delivery": "sh tests/Delivery/configuration.sh",
+        "check": [
+            "@check:backend",
+            "@check:assets",
+            "@check:contract",
+            "@check:delivery"
         ]
     }
 }

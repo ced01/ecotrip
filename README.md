@@ -1,72 +1,131 @@
-# Ecotrip — socle, contrats et catalogue d’hébergements
+# EcoTrip — démonstrateur hors ligne reproductible
 
-Socle technique d’un démonstrateur de comparaison de voyages. TASK-0001 fournit Symfony 7.4/PHP 8.4, PostgreSQL 17, Twig/Stimulus via AssetMapper, la migration initiale et un contrat OpenAPI. TASK-0002 ajoute l’estimation CO₂e auditable par étape et `GET /api/v1/methodology`. TASK-0003 implémente `capabilities`, le catalogue de lieux et la recherche de trajets de démonstration. TASK-0004 implémente `GET /api/v1/accommodations` avec un adaptateur synthétique hors ligne explicitement identifié.
+EcoTrip est un MVP Symfony 7.4/PHP 8.4 de comparaison de voyages. L’interface, les trajets, les hébergements et les facteurs carbone livrés sont **des scénarios synthétiques de démonstration**. Ils ne représentent ni horaire, disponibilité, prix, label, réservation, paiement, ni donnée d’un fournisseur réel. Il n’existe aucun fallback silencieux vers ou depuis un fournisseur réel.
 
-Les données de `docs/examples/` sont entièrement synthétiques, hors ligne et destinées au développement d’interface. Elles ne prouvent ni horaire, disponibilité, prix, label, facteur environnemental, ni offre d’un fournisseur réel.
+## Prérequis et configuration
 
-## Prérequis
+- Docker Engine et Docker Compose v2 ;
+- `18081/tcp` libre (modifiable dans `.env.local`) ;
+- aucun PHP, Composer ou Node hôte requis.
 
-- Docker avec Docker Compose v2 ;
-- ports locaux `18081` (HTTP) et Docker disponibles ;
-- aucun PHP ou Composer hôte requis.
+Les images principales sont fixées (`php:8.4.19-cli-bookworm`, `composer:2.9.5`, `postgres:17.9-bookworm`, Node de test `22.22.0-bookworm-slim`) et les dépendances PHP sont verrouillées par `composer.lock`.
 
-Les versions de l’image PHP, de Composer et de PostgreSQL sont fixées dans `Dockerfile` et `compose.yaml`; les dépendances PHP sont verrouillées par `composer.lock`.
-
-## Installation reproductible
+`.env.example` ne contient que des valeurs volontairement inutilisables en production. Créer des secrets locaux aléatoires, dans un fichier ignoré par Git et appartenant à l’utilisateur hôte :
 
 ```bash
-# Crée .env.local avec des secrets aléatoires, sans l’écraser s’il existe.
-docker run --rm -v "$PWD:/app" -w /app php:8.4-cli php tools/setup-local.php
+docker run --rm --user "$(id -u):$(id -g)" \
+  -e LOCAL_UID="$(id -u)" -e LOCAL_GID="$(id -g)" \
+  -v "$PWD:/app" -w /app php:8.4.19-cli-bookworm php tools/setup-local.php
+```
 
-docker compose --env-file .env.local build --pull
-docker compose --env-file .env.local run --rm app composer install \
-  --no-interaction --prefer-dist --no-progress
-docker compose --env-file .env.local run --rm app php bin/console importmap:install
+Le script refuse d’écraser un `.env.local` existant. Ne jamais réutiliser `.env.example`, transmettre `.env.local` ou committer un secret. `TRUSTED_PROXIES` reste vide par défaut ; voir « Sécurité HTTP ».
+
+## Bootstrap production depuis un checkout frais
+
+Le service `app` est l’artefact final : code, dépendances `--no-dev` et AssetMapper sont intégrés à l’image ; aucun bind mount du checkout n’est utilisé.
+
+```bash
+export COMPOSE_PROJECT_NAME=ecotrip_fresh       # nom isolé, au choix
+docker compose --env-file .env.local config --quiet
+docker compose --env-file .env.local build --pull app
 docker compose --env-file .env.local up -d database
-docker compose --env-file .env.local run --rm app php bin/console doctrine:migrations:migrate --no-interaction
+docker compose --env-file .env.local run --rm app \
+  php bin/console doctrine:migrations:migrate --no-interaction
 docker compose --env-file .env.local up -d app
+docker compose --env-file .env.local ps
+python3 tools/smoke-http.py
 ```
 
-`.env.local`, les caches, les dépendances et les assets compilés sont ignorés par Git. Ne jamais committer de secrets. Pour changer le port HTTP, ajouter par exemple `HTTP_PORT=18082` à `.env.local`.
-
-## Vérification
+La migration est explicite, transactionnelle et répétable : une seconde exécution doit répondre qu’aucune migration n’est nécessaire. Vérifier l’état sans modifier la base :
 
 ```bash
-docker compose --env-file .env.local run --rm app composer check
-docker compose --env-file .env.local run --rm app composer validate --strict
-docker compose --env-file .env.local run --rm app composer audit
-docker compose --env-file .env.local run --rm app php bin/console importmap:audit
-
-curl -i http://127.0.0.1:18081/health
-curl -i http://127.0.0.1:18081/api/v1/methodology
-curl -i 'http://127.0.0.1:18081/api/v1/accommodations?destinationId=demo-lyon&publicTransportNearby=unknown'
-curl -i http://127.0.0.1:18081/api/v1/capabilities
-curl -i 'http://127.0.0.1:18081/api/v1/places?q=lyon'
-curl -i -H 'Content-Type: application/json' -d '{"originId":"demo-paris","destinationId":"demo-lyon","departureDate":"2027-01-15","returnDate":null,"travelers":1,"modes":["train","coach"]}' http://127.0.0.1:18081/api/v1/journeys/search
+docker compose --env-file .env.local run --rm app php bin/console doctrine:migrations:status
+docker compose --env-file .env.local run --rm app php bin/console doctrine:migrations:up-to-date
 ```
 
-Résultats attendus : les routes documentées retournent `200 application/json`. Les trajets sont toujours marqués `demo`, les deux directions sont calculées séparément et aucune panne ne déclenche de fallback silencieux. Le catalogue d’hébergements ne prétend ni disponibilité ni réservation et conserve les valeurs inconnues à `null`. Une route inconnue retourne `404 application/problem+json` sans détail interne. `composer check` exécute PHPUnit, les lints conteneur/Twig/YAML, compile AssetMapper et valide le contrat avec ses six exemples JSON.
+Aucune fixture de base n’est à charger. Les seules fixtures livrées sont les scénarios démo versionnés dans `src/Demo/` et `docs/examples/`.
 
-### Quota et adresse cliente
+## Développement et contrôles
 
-`POST /api/v1/journeys/search` est limité à 20 requêtes par minute et par adresse cliente. Le compteur Symfony RateLimiter est partagé entre requêtes et workers par le pool cache fichier, avec verrou inter-processus; une réponse dépassant le quota est un `429 application/problem+json` et indique le délai restant dans `Retry-After`. Pour un déploiement multi-hôte, remplacer ce pool par un cache partagé (par exemple Redis) tout en conservant le même limiteur.
+Le profil `tools` fournit des conteneurs dev/test avec le checkout monté et l’UID/GID de `.env.local`, afin que `vendor/`, `var/` et les assets restent accessibles à l’utilisateur hôte :
 
-Par défaut, aucun proxy n’est approuvé : Symfony utilise l’adresse du pair TCP. Derrière un reverse proxy, configurer explicitement `framework.trusted_proxies` et `framework.trusted_headers` avec les seules adresses/plages du proxy administré avant d’utiliser `X-Forwarded-For`. Ne jamais approuver tous les proxies, sans quoi un client pourrait choisir sa clé de quota.
+```bash
+docker compose --env-file .env.local --profile tools build --pull dev test
+docker compose --env-file .env.local up -d database
+docker compose --env-file .env.local --profile tools run --rm dev \
+  composer install --no-interaction --prefer-dist --no-progress
+docker compose --env-file .env.local --profile tools run --rm dev php bin/console importmap:install
+docker compose --env-file .env.local --profile tools up -d dev  # http://127.0.0.1:18082
+```
 
-Arrêt sans supprimer les données PostgreSQL :
+Contrôle agrégé complet (Frontend, Backend, contrat, assets et audits) :
+
+```bash
+./tools/quality.sh
+```
+
+Commandes séparées, utiles en diagnostic :
+
+```bash
+docker compose --env-file .env.local --profile tools run --rm ui-test       # npm run test:ui
+docker compose --env-file .env.local --profile tools run --rm test composer check
+docker compose --env-file .env.local --profile tools run --rm test composer check:backend
+docker compose --env-file .env.local --profile tools run --rm test composer check:contract
+docker compose --env-file .env.local --profile tools run --rm test composer check:assets
+docker compose --env-file .env.local --profile tools run --rm test composer validate --strict
+docker compose --env-file .env.local --profile tools run --rm test composer audit
+docker compose --env-file .env.local --profile tools run --rm test php bin/console importmap:audit
+```
+
+`composer check` exécute PHPUnit, les lints conteneur/Twig/YAML, compile AssetMapper, valide OpenAPI et ses exemples, puis contrôle la configuration de livraison. Le contrat se régénère avec `python3 tools/build-contract.py`; le refaire une seconde fois doit laisser Git sans diff.
+
+## Smoke HTTP de l’artefact livré
+
+```bash
+BASE_URL=http://127.0.0.1:18081 python3 tools/smoke-http.py
+```
+
+Le smoke vérifie réellement l’accueil HTML, `/health`, capabilities, places, méthodologie, hébergements, recherche de trajet, une 404 Problem Details, les rejets `415`/`413`, ainsi que les fichiers CSS et JavaScript compilés et leurs types de média.
+
+## Modes et limites connues
+
+- `capabilities.mode`, l’UI, les résultats et les documents annoncent `demo` ; les provenances valent `demo`.
+- `real` désigne uniquement un adaptateur réel futur ; aucun n’est configuré ici.
+- `unavailable`/`provider_unavailable` est exposé en `503`, jamais remplacé par les fixtures démo.
+- Les paires couvertes, 9 voyageurs maximum, corps JSON de 16 KiB, 20 recherches/minute/adresse et absence de réservation sont publiés par `/api/v1/capabilities`.
+- La sortie du mode démo est volontairement hors périmètre : TASK-0009 à TASK-0013 devront intégrer et qualifier les sources réelles, leur provenance, leur indisponibilité et leur exploitation, sans modifier silencieusement le sens des statuts.
+
+Voir aussi [`docs/data-sources.md`](docs/data-sources.md), [`docs/methodology.md`](docs/methodology.md), [`docs/architecture.md`](docs/architecture.md) et [`docs/openapi.yaml`](docs/openapi.yaml).
+
+## Sécurité HTTP
+
+L’image finale s’exécute avec l’utilisateur non-root `app` (UID 10001), sans capacités Linux et avec `no-new-privileges`. `APP_ENV=prod` et `APP_DEBUG=0` sont forcés pour l’artefact livré ; le serveur masque l’affichage des erreurs. Les erreurs API publiques sont des `application/problem+json` génériques sans exception, chemin système, requête ni secret. Ne jamais mettre de secret ou donnée personnelle dans URL, identifiant de lieu ou logs.
+
+Le quota utilise l’adresse du pair TCP. Aucun proxy n’est approuvé par défaut. Derrière un reverse proxy administré, définir `TRUSTED_PROXIES` à ses seules IP/plages CIDR (séparées par des virgules) ; les en-têtes `Forwarded` ne sont alors acceptés que pour ce pair. Ne jamais utiliser `0.0.0.0/0` ou `REMOTE_ADDR` sans maîtriser le réseau. En multi-hôte, remplacer le cache fichier du rate limiter par un stockage partagé.
+
+Le healthcheck teste `/health` depuis le conteneur. Il prouve que le processus HTTP répond, pas qu’un fournisseur réel existe.
+
+## Arrêt et dépannage
+
+Arrêter **sans supprimer les données** :
 
 ```bash
 docker compose --env-file .env.local down
 ```
 
-Ne lancer `down -v` ou un rollback de migration qu’après accord explicite : ces opérations peuvent détruire des données.
+Ne jamais utiliser `down -v`, supprimer le volume ou revenir en arrière sur une migration sans accord explicite et sauvegarde.
 
-## Contrats et documentation
+Diagnostics non destructifs :
 
-- [`docs/openapi.yaml`](docs/openapi.yaml) : contrat OpenAPI 3.0.3 et statut d’implémentation par opération ;
-- [`docs/examples/`](docs/examples/) : exemples synthétiques validés contre les schémas ;
-- [`docs/architecture.md`](docs/architecture.md) : modules, frontières et conventions ;
-- [`docs/data-sources.md`](docs/data-sources.md) : politique de provenance et sources candidates non intégrées ;
-- [`docs/methodology.md`](docs/methodology.md) : règles de calcul prévues et limites explicites.
+```bash
+docker compose --env-file .env.local ps
+docker compose --env-file .env.local logs --no-log-prefix app database
+docker inspect --format '{{.State.Health.Status}} {{.Config.User}}' ecotrip-app-1
+docker compose --env-file .env.local config
+```
 
-Le contrat est générable avec `python3 tools/build-contract.py`; après génération, exécuter `composer check` et relire le diff. Le script PHP `tools/validate-contract.php` contrôle la structure OpenAPI, les références, les contraintes de schéma utilisées, les six fichiers JSON et leur identité avec les exemples embarqués.
+- **Permission refusée sur `.env.local`, `vendor/` ou `var/`** : vérifier `LOCAL_UID=$(id -u)` et `LOCAL_GID=$(id -g)` ; recréer uniquement les fichiers générés après en avoir sauvegardé le contenu utile. Le générateur doit être lancé avec `--user` comme ci-dessus.
+- **Port occupé** : changer `HTTP_PORT` (production) ou `DEV_HTTP_PORT` (développement) dans `.env.local`.
+- **Service unhealthy** : consulter `docker compose ... logs app`, puis appeler `/health`; vérifier que migrations et secrets ont été fournis.
+- **Base indisponible** : attendre le healthcheck PostgreSQL puis consulter `doctrine:migrations:status`.
+- **Assets absents** : reconstruire l’image finale, ou exécuter `importmap:install` puis `composer check:assets` dans le service `dev`.

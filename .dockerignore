@@ -1,4 +1,11 @@
 .git
+.gitignore
+.env.local
+.env.*.local
 vendor
 var
-.env.local
+public/assets
+assets/vendor
+node_modules
+.phpunit.cache
+.hermes
