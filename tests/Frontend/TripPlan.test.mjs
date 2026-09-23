@@ -12,6 +12,8 @@ import {
   saveTripPlan,
   loadTripPlan,
   clearTripPlan,
+  TRIP_PLAN_LEGACY_STORAGE_KEY,
+  TRIP_PLAN_STORAGE_KEY,
 } from '../../assets/plan/trip-plan-core.mjs';
 
 const request = {
@@ -89,7 +91,7 @@ test('trip plan supports optional return and accommodation while preserving evid
   assert.equal(minimal.accommodation, null);
 });
 
-test('voluntary persistence is versioned, dated, restorable and reports age', () => {
+test('voluntary persistence writes only v2, is restorable and reports age', () => {
   const memory = new Map();
   const storage = { setItem: (key, value) => memory.set(key, value), getItem: key => memory.get(key) ?? null, removeItem: key => memory.delete(key) };
   const plan = createTripPlan(journeys, 'out', 'back', accommodation, accommodationPayload.sources);
@@ -97,7 +99,9 @@ test('voluntary persistence is versioned, dated, restorable and reports age', ()
   assert.equal(saved.ok, true);
   const restored = loadTripPlan(storage);
   assert.equal(restored.ok, true);
-  assert.equal(restored.plan.schemaVersion, 1);
+  assert.equal(restored.plan.schemaVersion, 2);
+  assert.equal(memory.has(TRIP_PLAN_STORAGE_KEY), true);
+  assert.equal(memory.has(TRIP_PLAN_LEGACY_STORAGE_KEY), false);
   assert.equal(restored.plan.savedAt, '2026-09-22T10:00:00.000Z');
   assert.equal(restored.plan.accommodation.id, 'demo-stay');
   assert.equal(formatSavedAge(restored.plan.savedAt, new Date('2026-09-22T12:30:00.000Z')), 'sauvegardé il y a 2 h');
@@ -107,7 +111,7 @@ test('voluntary persistence is versioned, dated, restorable and reports age', ()
 
 test('restoration rejects corruption, unknown versions and incompatible destination data', () => {
   assert.equal(restoreTripPlan('{').reason, 'corrupt');
-  const plan = { ...createTripPlan(journeys, 'out', null, accommodation, [source]), schemaVersion: 1, savedAt: '2026-09-22T10:00:00.000Z' };
+  const plan = { ...createTripPlan(journeys, 'out', null, accommodation, [source]), schemaVersion: 2, savedAt: '2026-09-22T10:00:00.000Z' };
   assert.equal(restoreTripPlan(JSON.stringify({ ...plan, schemaVersion: 99 })).reason, 'unknown_version');
   assert.equal(restoreTripPlan(JSON.stringify({ ...plan, accommodation: { ...accommodation, destinationId: 'demo-paris' } })).reason, 'incompatible');
   assert.equal(restoreTripPlan(JSON.stringify({ ...plan, outbound: { id: 'incomplete' } })).reason, 'invalid');
@@ -156,7 +160,7 @@ test('all four warning categories survive creation, save and restore', () => {
 });
 
 test('snapshot validation is recursively exact and rejects adversarial shapes without throwing', () => {
-  const plan = { ...createTripPlan(journeys, 'out', 'back', accommodation, [source], accommodationPayload.warnings), schemaVersion: 1, savedAt: '2026-09-22T10:00:00.000Z' };
+  const plan = { ...createTripPlan(journeys, 'out', 'back', accommodation, [source], accommodationPayload.warnings), schemaVersion: 2, savedAt: '2026-09-22T10:00:00.000Z' };
   const mutations = [
     value => { value.request.garbage = true; },
     value => { value.request.departureDate = '2027-02-30'; },
@@ -190,4 +194,75 @@ test('verified evidence obeys organization, HTTPS reference, checked date and va
     { organization: null }, { referenceUrl: 'http://example.test/proof' }, { checkedAt: null },
     { kind: 'declaration' }, { validFrom: '2028-01-01' },
   ]) assert.throws(() => normalizeAccommodationResponse({ ...accommodationPayload, items: [{ ...accommodation, evidence: [{ ...verified, ...change }] }] }), /incomplète/i);
+});
+
+test('a real legacy v1 snapshot without plan warnings is strictly validated then migrated in memory', () => {
+  const current = createTripPlan(journeys, 'out', 'back', accommodation, [source]);
+  const { warnings: omitted, ...legacyPlan } = current;
+  assert.ok(omitted);
+  const legacy = { ...legacyPlan, schemaVersion: 1, savedAt: '2026-09-22T10:00:00Z' };
+  const restored = restoreTripPlan(JSON.stringify(legacy));
+  assert.equal(restored.ok, true);
+  assert.equal(restored.migratedFrom, 1);
+  assert.equal(restored.plan.schemaVersion, 2);
+  assert.deepEqual(restored.plan.warnings, { journeys: [], outbound: [], inbound: [], accommodation: [] });
+
+  const memory = new Map([[TRIP_PLAN_LEGACY_STORAGE_KEY, JSON.stringify(legacy)]]);
+  const storage = { getItem: key => memory.get(key) ?? null };
+  assert.equal(loadTripPlan(storage).migratedFrom, 1);
+  assert.equal(memory.has(TRIP_PLAN_STORAGE_KEY), false, 'loading must not save a migrated snapshot automatically');
+
+  assert.equal(restoreTripPlan(JSON.stringify({ ...legacy, warnings: current.warnings })).reason, 'invalid');
+  assert.equal(restoreTripPlan(JSON.stringify({ ...legacy, outbound: { id: 'incomplete' } })).reason, 'invalid');
+});
+
+test('v2 requires warnings and takes priority without unsafe fallback to legacy v1', () => {
+  const plan = createTripPlan(journeys, 'out', null, null, [source]);
+  const v2 = { ...plan, schemaVersion: 2, savedAt: '2026-09-22T10:00:00+02:00' };
+  const { warnings: omitted, ...legacyPlan } = plan;
+  assert.ok(omitted);
+  const legacy = { ...legacyPlan, schemaVersion: 1, savedAt: '2026-09-22T10:00:00Z' };
+  const memory = new Map([
+    [TRIP_PLAN_STORAGE_KEY, JSON.stringify(v2)],
+    [TRIP_PLAN_LEGACY_STORAGE_KEY, JSON.stringify(legacy)],
+  ]);
+  const storage = { getItem: key => memory.get(key) ?? null };
+  assert.equal(loadTripPlan(storage).migratedFrom, undefined);
+  const { warnings: missing, ...v2WithoutWarnings } = v2;
+  assert.ok(missing);
+  memory.set(TRIP_PLAN_STORAGE_KEY, JSON.stringify(v2WithoutWarnings));
+  assert.equal(loadTripPlan(storage).reason, 'invalid');
+  memory.set(TRIP_PLAN_STORAGE_KEY, JSON.stringify({ ...v2, schemaVersion: 99 }));
+  assert.equal(loadTripPlan(storage).reason, 'unknown_version');
+});
+
+test('clear attempts both v2 and legacy keys even when storage refuses one removal', () => {
+  const removed = [];
+  const storage = { removeItem: key => { removed.push(key); if (key === TRIP_PLAN_STORAGE_KEY) throw new Error('denied'); } };
+  assert.equal(clearTripPlan(storage).reason, 'unavailable');
+  assert.deepEqual(removed, [TRIP_PLAN_STORAGE_KEY, TRIP_PLAN_LEGACY_STORAGE_KEY]);
+});
+
+test('savedAt, provenance and schedules require a complete, real RFC3339 date-time', () => {
+  const base = { ...createTripPlan(journeys, 'out', null, null, [source]), schemaVersion: 2, savedAt: '2026-09-22T10:00:00Z' };
+  const validateAt = (path, value) => {
+    const candidate = structuredClone(base);
+    if (path === 'savedAt') candidate.savedAt = value;
+    if (path === 'provenance') candidate.outbound.provenance.asOf = value;
+    if (path === 'schedule') {
+      candidate.outbound.legs[0].schedule.departureAt = value;
+      candidate.outbound.legs[0].schedule.arrivalAt = value;
+    }
+    return restoreTripPlan(JSON.stringify(candidate));
+  };
+  for (const valid of ['2026-09-22T10:00:00Z', '2026-09-22T10:00:00.123Z', '2026-09-22T10:00:00+02:30', '2024-02-29T23:59:59-05:00']) {
+    for (const path of ['savedAt', 'provenance', 'schedule']) assert.equal(validateAt(path, valid).ok, true, `${path}: ${valid}`);
+  }
+  for (const invalid of [
+    '2026-09-22T10:00Z', '2026-09-22T10:00:00', '2026-02-29T10:00:00Z',
+    '2026-13-01T10:00:00Z', '2026-09-22T24:00:00Z', '2026-09-22T10:60:00Z',
+    '2026-09-22T10:00:60Z', '2026-09-22T10:00:00+24:00', '2026-09-22 10:00:00Z',
+  ]) {
+    for (const path of ['savedAt', 'provenance', 'schedule']) assert.equal(validateAt(path, invalid).reason, 'invalid', `${path}: ${invalid}`);
+  }
 });

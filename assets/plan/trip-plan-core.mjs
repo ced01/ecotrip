@@ -1,5 +1,6 @@
-export const TRIP_PLAN_STORAGE_KEY = 'ecotrip.trip-plan.v1';
-export const TRIP_PLAN_SCHEMA_VERSION = 1;
+export const TRIP_PLAN_STORAGE_KEY = 'ecotrip.trip-plan.v2';
+export const TRIP_PLAN_LEGACY_STORAGE_KEY = 'ecotrip.trip-plan.v1';
+export const TRIP_PLAN_SCHEMA_VERSION = 2;
 
 const accommodationStatuses = new Set(['complete', 'empty', 'out_of_coverage']);
 const modes = new Set(['train', 'coach', 'walk', 'public_transport', 'bicycle', 'carpool', 'flight']);
@@ -12,12 +13,24 @@ const isText = value => typeof value === 'string' && value.length > 0 && value.l
 const isNullableText = value => value === null || (typeof value === 'string' && value.length <= MAX_TEXT);
 const isFiniteNonNegative = value => Number.isFinite(value) && value >= 0;
 const isIsoDate = value => {
-  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
-  const date = new Date(`${value}T00:00:00.000Z`);
-  return validDate(date) && date.toISOString().slice(0, 10) === value;
+  const match = typeof value === 'string' && /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) return false;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  if (year < 1 || month < 1 || month > 12 || day < 1) return false;
+  const leap = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+  const days = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  return day <= days[month - 1];
 };
-const isIsoDateTime = value => typeof value === 'string' && value.length <= 100 && /^\d{4}-\d{2}-\d{2}T/.test(value)
-  && isIsoDate(value.slice(0, 10)) && validDate(new Date(value));
+const isIsoDateTime = value => {
+  if (typeof value !== 'string' || value.length > 100) return false;
+  const match = /^(\d{4}-\d{2}-\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d+)?(?:Z|[+-](\d{2}):(\d{2}))$/.exec(value);
+  if (!match || !isIsoDate(match[1])) return false;
+  const [, , hour, minute, second, offsetHour, offsetMinute] = match;
+  return Number(hour) <= 23 && Number(minute) <= 59 && Number(second) <= 59
+    && (offsetHour === undefined || (Number(offsetHour) <= 23 && Number(offsetMinute) <= 59));
+};
 const isNullableDate = value => value === null || isIsoDate(value);
 const isNullableDateTime = value => value === null || isIsoDateTime(value);
 const isHttpUrl = value => {
@@ -148,19 +161,42 @@ export function restoreTripPlan(raw) {
   let value;
   try { value = JSON.parse(raw); } catch { return { ok: false, reason: 'corrupt' }; }
   if (!isObject(value)) return { ok: false, reason: 'invalid' };
-  if (value.schemaVersion !== TRIP_PLAN_SCHEMA_VERSION) return { ok: false, reason: 'unknown_version' };
-  const reason = validateTripPlan(value);
+  if (![1, TRIP_PLAN_SCHEMA_VERSION].includes(value.schemaVersion)) return { ok: false, reason: 'unknown_version' };
+  if (value.schemaVersion === 1) {
+    const reason = validateTripPlan(value, 1);
+    if (reason !== null) return { ok: false, reason };
+    return {
+      ok: true,
+      migratedFrom: 1,
+      plan: {
+        ...value,
+        schemaVersion: TRIP_PLAN_SCHEMA_VERSION,
+        warnings: { journeys: [], outbound: [], inbound: [], accommodation: [] },
+      },
+    };
+  }
+  const reason = validateTripPlan(value, TRIP_PLAN_SCHEMA_VERSION);
   return reason === null ? { ok: true, plan: value } : { ok: false, reason };
 }
 
 export function loadTripPlan(storage) {
   if (!storage) return { ok: false, reason: 'unavailable' };
-  try { return restoreTripPlan(storage.getItem(TRIP_PLAN_STORAGE_KEY)); } catch { return { ok: false, reason: 'unavailable' }; }
+  try {
+    const current = storage.getItem(TRIP_PLAN_STORAGE_KEY);
+    if (current !== null) return restoreTripPlan(current);
+    return restoreTripPlan(storage.getItem(TRIP_PLAN_LEGACY_STORAGE_KEY));
+  } catch {
+    return { ok: false, reason: 'unavailable' };
+  }
 }
 
 export function clearTripPlan(storage) {
   if (!storage) return { ok: false, reason: 'unavailable' };
-  try { storage.removeItem(TRIP_PLAN_STORAGE_KEY); return { ok: true }; } catch { return { ok: false, reason: 'unavailable' }; }
+  let unavailable = false;
+  for (const key of [TRIP_PLAN_STORAGE_KEY, TRIP_PLAN_LEGACY_STORAGE_KEY]) {
+    try { storage.removeItem(key); } catch { unavailable = true; }
+  }
+  return unavailable ? { ok: false, reason: 'unavailable' } : { ok: true };
 }
 
 export function formatSavedAge(savedAt, now = new Date()) {
@@ -175,13 +211,15 @@ export function formatSavedAge(savedAt, now = new Date()) {
   return `sauvegardé il y a ${days} j`;
 }
 
-function validateTripPlan(value) {
-  const exact = ['schemaVersion', 'savedAt', 'request', 'outbound', 'inbound', 'accommodation', 'sources', 'warnings'];
-  if (!hasExactKeys(value, exact) || value.schemaVersion !== TRIP_PLAN_SCHEMA_VERSION || !isIsoDateTime(value.savedAt)
+function validateTripPlan(value, schemaVersion = TRIP_PLAN_SCHEMA_VERSION) {
+  const exact = ['schemaVersion', 'savedAt', 'request', 'outbound', 'inbound', 'accommodation', 'sources'];
+  if (schemaVersion === TRIP_PLAN_SCHEMA_VERSION) exact.push('warnings');
+  if (!hasExactKeys(value, exact) || value.schemaVersion !== schemaVersion || !isIsoDateTime(value.savedAt)
       || !isRequest(value.request) || !isItinerary(value.outbound, 'outbound', value.request.travelers)
       || (value.inbound !== null && !isItinerary(value.inbound, 'inbound', value.request.travelers))
       || (value.accommodation !== null && !isAccommodation(value.accommodation))
-      || !isArrayOf(value.sources, isSource) || !isPlanWarnings(value.warnings)) return 'invalid';
+      || !isArrayOf(value.sources, isSource)
+      || (schemaVersion === TRIP_PLAN_SCHEMA_VERSION && !isPlanWarnings(value.warnings))) return 'invalid';
   const request = value.request;
   if (value.outbound.requestedDate !== request.departureDate || value.outbound.legs[0].originId !== request.originId
       || value.outbound.legs.at(-1).destinationId !== request.destinationId) return 'incompatible';

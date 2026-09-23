@@ -264,7 +264,9 @@ function initialise(accommodationSection, planSection) {
     renderPlan(currentPlan, planSummary);
     saveButton.disabled = false; printButton.disabled = false;
     savedMeta.textContent = `${formatSavedAge(currentPlan.savedAt)} · ${new Date(currentPlan.savedAt).toLocaleString('fr-FR')} · format v${currentPlan.schemaVersion}.`;
-    planStatus.textContent = 'Plan local restauré après validation.';
+    planStatus.textContent = result.migratedFrom === 1
+      ? 'Ancien plan local v1 restauré et migré en mémoire vers le format v2. Sauvegardez-le pour conserver le nouveau format.'
+      : 'Plan local v2 restauré après validation.';
     planSection.querySelector('#trip-plan-title')?.focus({ preventScroll: true });
   });
 
@@ -276,7 +278,9 @@ function initialise(accommodationSection, planSection) {
   printButton.addEventListener('click', () => globalThis.print());
 
   const existing = loadTripPlan(storage);
-  if (existing.ok) savedMeta.textContent = `Une sauvegarde validable est disponible (${formatSavedAge(existing.plan.savedAt)}, format v${existing.plan.schemaVersion}). Utilisez « Restaurer » pour l’afficher.`;
+  if (existing.ok) savedMeta.textContent = existing.migratedFrom === 1
+    ? `Une ancienne sauvegarde v1 validable est disponible (${formatSavedAge(existing.plan.savedAt)}). Elle sera migrée en mémoire vers v2 lors de la restauration.`
+    : `Une sauvegarde v2 validable est disponible (${formatSavedAge(existing.plan.savedAt)}). Utilisez « Restaurer » pour l’afficher.`;
   else if (!['absent'].includes(existing.reason)) savedMeta.textContent = existing.reason === 'unavailable' ? 'Stockage local indisponible ou refusé.' : 'Une sauvegarde locale non valide est présente; elle ne sera pas restaurée.';
 }
 
