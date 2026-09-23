@@ -1,0 +1,2 @@
+feed_publisher_name,feed_publisher_url,feed_lang,default_lang,feed_start_date,feed_end_date,feed_version
+"Fil Bleu (Tours)","https://www.filbleu.fr","fr","fr","20260911","20261231","10048_164382514"

@@ -2,8 +2,8 @@ FROM composer:2.9.5 AS composer
 
 FROM php:8.4.19-cli-bookworm AS php-base
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends libpq-dev libicu-dev libxml2-dev libonig-dev unzip git \
-    && docker-php-ext-install pdo_pgsql intl dom xml xmlwriter mbstring \
+    && apt-get install -y --no-install-recommends libpq-dev libicu-dev libxml2-dev libonig-dev libzip-dev unzip git \
+    && docker-php-ext-install pdo_pgsql intl dom xml xmlwriter mbstring zip \
     && rm -rf /var/lib/apt/lists/* \
     && groupadd --gid 10001 app \
     && useradd --uid 10001 --gid app --create-home --shell /usr/sbin/nologin app

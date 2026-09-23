@@ -1,17 +1,22 @@
 parameters:
   env(TRUSTED_PROXIES): ''
 
+imports:
+  - { resource: services/places.yaml }
+
 services:
   _defaults:
     autowire: true
     autoconfigure: true
   App\:
     resource: '../src/'
-    exclude: '../src/{Kernel.php,Accommodation}/'
+    exclude:
+      - '../src/Kernel.php'
+      - '../src/Accommodation/'
+      - '../src/Place/PlaceProviderFactory.php'
 
   App\Provider\DemoAccommodationProvider: ~
   App\Provider\AccommodationProvider: '@App\Provider\DemoAccommodationProvider'
-  App\Provider\PlaceProvider: '@App\Demo\DemoPlaceCatalog'
   App\Provider\CapabilitiesProvider: '@App\Demo\DemoPlaceCatalog'
   App\Provider\JourneyProvider: '@App\Demo\DemoJourneyProvider'
   App\Environmental\EmissionFactorRepository: '@App\Demo\DemoEmissionFactorRepository'

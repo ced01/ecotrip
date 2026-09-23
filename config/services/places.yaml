@@ -1,0 +1,13 @@
+parameters:
+  env(ECOTRIP_PLACE_PROVIDER): 'demo'
+
+services:
+  App\Place\PlaceProviderFactory:
+    autowire: true
+    arguments:
+      $provider: '%env(ECOTRIP_PLACE_PROVIDER)%'
+
+  App\Provider\PlaceProvider:
+    factory: ['@App\Place\PlaceProviderFactory', 'create']
+
+  App\Provider\PlaceReferenceResolver: '@App\Place\PostgresPlaceReferenceResolver'

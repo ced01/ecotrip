@@ -19,22 +19,28 @@ final class MigrationTest extends KernelTestCase
         try {
             self::assertSame([], $this->listCurrentSchemaTableNames($connection));
             $files = glob(dirname(__DIR__, 2).'/migrations/Version*.php');
-            self::assertCount(1, $files, 'A foundation migration is required.');
-            $class = 'DoctrineMigrations\\'.basename($files[0], '.php');
-            $up = new $class($connection, new NullLogger());
-            $up->up(new Schema());
-            foreach ($up->getSql() as $query) {
-                $connection->executeStatement($query->getStatement(), $query->getParameters(), $query->getTypes());
+            self::assertNotEmpty($files, 'At least one migration is required.');
+            sort($files);
+            foreach ($files as $file) {
+                $class = 'DoctrineMigrations\\'.basename($file, '.php');
+                $up = new $class($connection, new NullLogger());
+                $up->up(new Schema());
+                foreach ($up->getSql() as $query) {
+                    $connection->executeStatement($query->getStatement(), $query->getParameters(), $query->getTypes());
+                }
             }
             $tables = $this->listCurrentSchemaTableNames($connection);
-            self::assertSame(['accommodation', 'data_source', 'emission_factor', 'environmental_evidence', 'journey_leg', 'journey_scenario', 'place'], $tables);
+            self::assertSame(['accommodation', 'data_source', 'emission_factor', 'environmental_evidence', 'journey_leg', 'journey_scenario', 'place', 'place_external_reference', 'place_import'], $tables);
             foreach ($tables as $table) {
                 self::assertSame(0, (int) $connection->fetchOne('SELECT COUNT(*) FROM '.$table));
             }
-            $down = new $class($connection, new NullLogger());
-            $down->down(new Schema());
-            foreach ($down->getSql() as $query) {
-                $connection->executeStatement($query->getStatement(), $query->getParameters(), $query->getTypes());
+            foreach (array_reverse($files) as $file) {
+                $class = 'DoctrineMigrations\\'.basename($file, '.php');
+                $down = new $class($connection, new NullLogger());
+                $down->down(new Schema());
+                foreach ($down->getSql() as $query) {
+                    $connection->executeStatement($query->getStatement(), $query->getParameters(), $query->getTypes());
+                }
             }
             self::assertSame([], $this->listCurrentSchemaTableNames($connection));
         } finally {

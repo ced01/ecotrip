@@ -10,6 +10,7 @@ x-app-environment: &app-environment
   <<: *database-environment
   APP_SECRET: "${APP_SECRET:?Generate .env.local as documented}"
   TRUSTED_PROXIES: "${TRUSTED_PROXIES:-}"
+  ECOTRIP_PLACE_PROVIDER: "${ECOTRIP_PLACE_PROVIDER:-demo}"
 
 services:
   database:

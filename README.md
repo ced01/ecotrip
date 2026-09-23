@@ -43,7 +43,25 @@ docker compose --env-file .env.local run --rm app php bin/console doctrine:migra
 docker compose --env-file .env.local run --rm app php bin/console doctrine:migrations:up-to-date
 ```
 
-Aucune fixture de base n’est à charger. Les seules fixtures livrées sont les scénarios démo versionnés dans `src/Demo/` et `docs/examples/`.
+Aucune fixture de base n’est à charger pour le mode démo. Une petite fixture Fil Bleu attribuée est conservée dans `tests/Fixtures/filbleu-minimal/`; elle sert exclusivement aux tests et n'est pas présentée comme un feed complet.
+
+## Catalogue de lieux Fil Bleu optionnel
+
+Le fournisseur de lieux reste `demo` par défaut et la page d'accueil, la bannière, les trajets et les autres domaines restent démo. Le catalogue réel est une activation **explicite et indépendante** :
+
+```bash
+curl --fail --location --output /tmp/filbleu.gtfs.zip \
+  'https://data.tours-metropole.fr/api/v2/catalog/datasets/horaires-temps-reel-gtfsrt-reseau-filbleu-tmvl/alternative_exports/filbleu_gtfszip'
+printf '%s  %s\n' '1d59de1c3fb6f3daba2c0cef0f7b878d268cd1a5093617392711b2dabccc7c22' /tmp/filbleu.gtfs.zip | sha256sum --check --strict
+docker compose --env-file .env.local run --rm -v /tmp/filbleu.gtfs.zip:/tmp/filbleu.gtfs.zip:ro app \
+  php bin/console app:places:import-filbleu --file=/tmp/filbleu.gtfs.zip \
+  --feed-version=10048_164382514 \
+  --sha256=1d59de1c3fb6f3daba2c0cef0f7b878d268cd1a5093617392711b2dabccc7c22
+```
+
+Définir ensuite `ECOTRIP_PLACE_PROVIDER=filbleu` dans `.env.local` et recréer le conteneur applicatif. `demo` est l'unique défaut. Une valeur inconnue échoue au démarrage du service; `filbleu` sans import répond explicitement `503`, sans fallback. L'import exige un fichier local, un `feed_version` et un checksum attendus. Il accepte explicitement le nom non standard `feed_infos.txt` observé dans ce feed, mais refuse toute autre structure incomplète, ligne obligatoire invalide, doublon contradictoire ou collision d'identité.
+
+Chaque import est une transaction : source, journal, lieux et références sont tous validés ou tous annulés. Réimporter le même snapshot est idempotent pour le catalogue et les IDs, tout en ajoutant une ligne d'audit. Les stations absentes sont désactivées sans suppression; leur réapparition réactive le même ID. Une mise à jour s'effectue avec la nouvelle version et son checksum vérifié, jamais en effaçant le volume. Le feed annonce une mise à jour au maximum quotidienne; l'opérateur choisit la fréquence et conserve les snapshots/checksums nécessaires à son audit.
 
 ## Développement et contrôles
 

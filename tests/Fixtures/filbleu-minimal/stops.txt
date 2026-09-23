@@ -1,0 +1,10 @@
+stop_id,stop_name,stop_lat,stop_lon,location_type,parent_station,stop_timezone
+"TTR:AC-GATO","Gare de Tours","47.38906503","0.69336917","1","","Europe/Paris"
+"TTR:GATO-1T","Gare de Tours 1","47.38906503","0.69336917","0","TTR:AC-GATO","Europe/Paris"
+"TTR:GATO-2T","Gare de Tours 2","47.38927861","0.69320361","0","TTR:AC-GATO","Europe/Paris"
+"TTR:AC-JJAU","Jean Jaurès","47.38931146","0.68918832","1","","Europe/Paris"
+"TTR:JJAU-1T","Jean Jaurès 1","47.38931146","0.68918832","0","TTR:AC-JJAU","Europe/Paris"
+"TTR:JJAU-2T","Jean Jaurès 2","47.38902614","0.68936936","0","TTR:AC-JJAU","Europe/Paris"
+"TTR:AC-LYVA","Vaucanson","47.42343798","0.70959672","1","","Europe/Paris"
+"TTR:LYVA-1T","Vaucanson","47.42343798","0.70959672","0","TTR:AC-LYVA","Europe/Paris"
+"TTR:LYVA-2T","Vaucanson","47.42341584","0.70994208","0","TTR:AC-LYVA","Europe/Paris"

@@ -1,8 +1,24 @@
-# Sources de données et provenance
+# Sources de données
+
+## Fil Bleu / Tours Métropole — catalogue optionnel de lieux réels
+
+- Catalogue officiel : <https://www.data.gouv.fr/datasets/fil-bleu-syndicat-des-mobilites-gtfs-gtfs-rt>
+- Artefact : <https://data.tours-metropole.fr/api/v2/catalog/datasets/horaires-temps-reel-gtfsrt-reseau-filbleu-tmvl/alternative_exports/filbleu_gtfszip>
+- Éditeur : Tours Métropole Val de Loire ; exploitant/feed publisher : Fil Bleu (Tours).
+- Licence déclarée : Licence Ouverte 2.0 (`lov2`). Consultation : 2026-09-23.
+- Snapshot qualifié : 5 865 330 octets, SHA-256 `1d59de1c3fb6f3daba2c0cef0f7b878d268cd1a5093617392711b2dabccc7c22`, `feed_version=10048_164382514`, validité 2026-09-11–2026-12-31.
+- Couverture : réseau Fil Bleu de Tours Métropole, France. `countryCode=FR` vient de ce périmètre publié. Les coordonnées et le fuseau viennent du feed; aucun géocodage ou rapprochement par nom n'est effectué.
+- Le snapshot contient 774 stations commerciales (`location_type=1`) parmi 2 269 arrêts. Seules ces stations sont exposées comme lieux; les points physiques sont conservés comme références non publiques pour les correspondances fournisseur.
+- Particularité qualifiée : le feed fournit `feed_infos.txt` au pluriel. L'importeur l'accepte explicitement sans rendre les autres contrôles permissifs.
+- Fraîcheur annoncée : au maximum quotidienne (`continuous` au catalogue). EcoTrip importe un fichier local épinglé et n'appelle pas le réseau pendant la saisie.
+
+Les IDs publics sont `filbleu-` suivi des 40 premiers caractères hexadécimaux de `SHA-256("filbleu-gtfs" + NUL + stop_id)`. Cette fonction est opaque, déterministe et indépendante de l'ordre. La table de référence conserve le `stop_id` exact; aucun ID externe brut n'est exposé comme ID EcoTrip. Les suppressions amont désactivent la référence sans suppression ni réaffectation.
+
+Limites : il s'agit d'un référentiel d'arrêts et non d'un géocodeur, d'une promesse de desserte, d'horaires temps réel, d'un prix ou d'une réservation. Le mode réel des trajets n'est pas activé par ce catalogue. Voir le README pour le téléchargement, la vérification, l'import, le remplacement non destructif et le rollback transactionnel.
 
 ## État actuel
 
-Le projet n’intègre **aucune source réelle** et ne contient aucune donnée métier en base. Les objets `demo-*` de `docs/examples/` sont synthétiques : ils servent uniquement à stabiliser le contrat et ne doivent jamais être affichés comme horaires, disponibilités, prix, labels ou performances environnementales réels. TASK-0002 ajoute la source déclarative `synthetic-tests`, clairement marquée `demo`; ses facteurs fictifs n’existent que dans les tests arithmétiques et ne sont ni une mesure ni une moyenne publiée. TASK-0004 fournit un adaptateur d’hébergements explicitement synthétique et hors ligne : prix, caractéristiques, distances et certifications portent le statut `demo`, et aucune réservation n’est proposée.
+Le catalogue Fil Bleu est la seule source réelle intégrée et demeure optionnel. Par défaut, aucune donnée métier n'est chargée en base et tous les domaines restent démo. Les objets `demo-*` de `docs/examples/` sont synthétiques : ils servent uniquement à stabiliser le contrat et ne doivent jamais être affichés comme horaires, disponibilités, prix, labels ou performances environnementales réels. La source déclarative `synthetic-tests`, clairement marquée `demo`, n’existe que dans les tests arithmétiques. L’adaptateur d’hébergements reste explicitement synthétique et hors ligne.
 
 ## Sources candidates à instruire
 
