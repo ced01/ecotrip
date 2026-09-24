@@ -1,0 +1,2 @@
+service_id,monday,tuesday,wednesday,thursday,friday,saturday,sunday,start_date,end_date
+"#JDD-1012#2056848#1991409-Hiver-Sco_14Sept26#0#SEMAINE",1,1,1,1,1,0,0,20260914,20261219

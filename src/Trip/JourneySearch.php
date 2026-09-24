@@ -14,10 +14,10 @@ final class JourneySearch
     /** @param array<string, mixed> $request @return array<string, mixed> */
     public function search(array $request): array
     {
-        $outbound = $this->direction(new JourneyQuery($request['originId'], $request['destinationId'], $request['departureDate'], $request['travelers'], $request['modes']));
+        $outbound = $this->direction(new JourneyQuery($request['originId'], $request['destinationId'], $request['departureDate'], $request['travelers'], $request['modes']), 'outbound');
         $inbound = $request['returnDate'] === null
             ? new DirectionResult(DirectionStatus::NotRequested, [])
-            : $this->direction(new JourneyQuery($request['destinationId'], $request['originId'], $request['returnDate'], $request['travelers'], $request['modes']));
+            : $this->direction(new JourneyQuery($request['destinationId'], $request['originId'], $request['returnDate'], $request['travelers'], $request['modes']), 'inbound');
 
         if ($outbound->status === DirectionStatus::Unavailable
             && ($request['returnDate'] === null || $inbound->status === DirectionStatus::Unavailable)) {
@@ -35,10 +35,17 @@ final class JourneySearch
         ];
     }
 
-    private function direction(JourneyQuery $query): DirectionResult
+    private function direction(JourneyQuery $query, string $direction): DirectionResult
     {
         try {
-            return $this->provider->search($query);
+            $result = $this->provider->search($query);
+            $itineraries = array_map(static function (array $itinerary) use ($direction): array {
+                if (array_key_exists('direction', $itinerary)) {
+                    $itinerary['direction'] = $direction;
+                }
+                return $itinerary;
+            }, $result->itineraries);
+            return new DirectionResult($result->status, $itineraries, $result->warnings);
         } catch (ProviderUnavailable) {
             return new DirectionResult(DirectionStatus::Unavailable, [], ['Direction indisponible auprès du fournisseur configuré.']);
         }

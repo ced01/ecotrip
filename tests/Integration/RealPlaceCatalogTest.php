@@ -8,6 +8,10 @@ use App\Command\ImportFilBleuPlacesCommand;
 use App\Place\FilBleuGtfsImporter;
 use App\Place\PostgresPlaceReferenceResolver;
 use App\Place\PostgresPlaceCatalog;
+use App\Journey\FilBleuJourneyProvider;
+use App\Journey\PostgresJourneyScheduleRepository;
+use App\Trip\DirectionStatus;
+use App\Trip\JourneyQuery;
 use Doctrine\DBAL\Connection;
 use PHPUnit\Framework\Attributes\Test;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -41,6 +45,59 @@ final class RealPlaceCatalogTest extends KernelTestCase
         $this->db->executeStatement('SET search_path TO public');
         $this->db->executeStatement('DROP SCHEMA '.$this->schema.' CASCADE');
         parent::tearDown();
+    }
+
+    #[Test]
+    public function verifiedDirectJourneyUsesCalendarAndOpaqueEcoTripReferences(): void
+    {
+        $zip = $this->documentedFixtureZip();
+        (new FilBleuGtfsImporter($this->db))->import($zip, '10048_164382514', hash_file('sha256', $zip));
+        $provider = new FilBleuJourneyProvider(new PostgresPlaceReferenceResolver($this->db), new PostgresJourneyScheduleRepository($this->db));
+        $origin = FilBleuGtfsImporter::internalId('TTR:AC-GATO');
+        $destination = FilBleuGtfsImporter::internalId('TTR:AC-JJAU');
+
+        $active = $provider->search(new JourneyQuery($origin, $destination, new \DateTimeImmutable('2026-09-23', new \DateTimeZone('Europe/Paris')), 1, ['public_transport']));
+        self::assertSame(DirectionStatus::Complete, $active->status);
+        self::assertSame('2026-09-23T05:22:00+02:00', $active->itineraries[0]['legs'][0]['schedule']['departureAt']);
+        self::assertSame('2026-09-23T05:24:00+02:00', $active->itineraries[0]['legs'][0]['schedule']['arrivalAt']);
+        self::assertSame($origin, $active->itineraries[0]['legs'][0]['originId']);
+        self::assertStringNotContainsString('TTR:', json_encode($active->itineraries, JSON_THROW_ON_ERROR));
+
+        $weekend = $provider->search(new JourneyQuery($origin, $destination, new \DateTimeImmutable('2026-09-20', new \DateTimeZone('Europe/Paris')), 1, ['public_transport']));
+        self::assertSame(DirectionStatus::Empty, $weekend->status);
+    }
+
+    #[Test]
+    public function serviceExceptionsAndPickupDropOffRulesAreApplied(): void
+    {
+        $zip = $this->documentedFixtureZip();
+        $import = (new FilBleuGtfsImporter($this->db))->import($zip, '10048_164382514', hash_file('sha256', $zip));
+        $provider = new FilBleuJourneyProvider(new PostgresPlaceReferenceResolver($this->db), new PostgresJourneyScheduleRepository($this->db));
+        $origin = FilBleuGtfsImporter::internalId('TTR:AC-GATO');
+        $destination = FilBleuGtfsImporter::internalId('TTR:AC-JJAU');
+        $serviceId = (string) $this->db->fetchOne('SELECT external_id FROM gtfs_service WHERE import_id=:import', ['import' => $import->importId]);
+
+        $this->db->insert('gtfs_service_exception', [
+            'import_id' => $import->importId,
+            'service_id' => $serviceId,
+            'service_date' => '2026-09-23',
+            'exception_type' => 2,
+        ]);
+        self::assertSame(DirectionStatus::Empty, $provider->search(new JourneyQuery($origin, $destination, new \DateTimeImmutable('2026-09-23'), 1, ['public_transport']))->status);
+
+        $this->db->insert('gtfs_service_exception', [
+            'import_id' => $import->importId,
+            'service_id' => $serviceId,
+            'service_date' => '2026-09-20',
+            'exception_type' => 1,
+        ]);
+        self::assertSame(DirectionStatus::Complete, $provider->search(new JourneyQuery($origin, $destination, new \DateTimeImmutable('2026-09-20'), 1, ['public_transport']))->status);
+
+        $this->db->executeStatement('UPDATE gtfs_stop_time SET pickup_type=1 WHERE import_id=:import AND stop_id=:stop', ['import' => $import->importId, 'stop' => 'TTR:GAVNB-1']);
+        self::assertSame(DirectionStatus::Empty, $provider->search(new JourneyQuery($origin, $destination, new \DateTimeImmutable('2026-09-20'), 1, ['public_transport']))->status);
+        $this->db->executeStatement('UPDATE gtfs_stop_time SET pickup_type=0 WHERE import_id=:import AND stop_id=:stop', ['import' => $import->importId, 'stop' => 'TTR:GAVNB-1']);
+        $this->db->executeStatement('UPDATE gtfs_stop_time SET drop_off_type=1 WHERE import_id=:import AND stop_id=:stop', ['import' => $import->importId, 'stop' => 'TTR:JJOUB-1']);
+        self::assertSame(DirectionStatus::Empty, $provider->search(new JourneyQuery($origin, $destination, new \DateTimeImmutable('2026-09-20'), 1, ['public_transport']))->status);
     }
 
     #[Test]
@@ -154,7 +211,7 @@ final class RealPlaceCatalogTest extends KernelTestCase
         $path = tempnam(sys_get_temp_dir(), 'filbleu_fixture_').'.zip';
         $zip = new \ZipArchive();
         self::assertTrue($zip->open($path, \ZipArchive::CREATE | \ZipArchive::OVERWRITE));
-        foreach (['feed_infos.txt', 'stops.txt'] as $name) {
+        foreach (['feed_infos.txt', 'stops.txt', 'routes.txt', 'calendar.txt', 'calendar_dates.txt', 'trips.txt', 'stop_times.txt'] as $name) {
             self::assertTrue($zip->addFile($fixtureDirectory.'/'.$name, $name));
         }
         $zip->close();
@@ -176,6 +233,12 @@ final class RealPlaceCatalogTest extends KernelTestCase
             }
             $zip->addFromString('stops.txt', $csv);
         }
+        $stopId = $rows[0][0] ?? 'station-a';
+        $zip->addFromString('routes.txt', "route_id,agency_id,route_short_name,route_long_name,route_type\nroute,TTR,1,Fixture,3\n");
+        $zip->addFromString('calendar.txt', "service_id,monday,tuesday,wednesday,thursday,friday,saturday,sunday,start_date,end_date\nservice,1,1,1,1,1,1,1,20260911,20261231\n");
+        $zip->addFromString('calendar_dates.txt', "service_id,date,exception_type\nservice,20260923,1\n");
+        $zip->addFromString('trips.txt', "route_id,service_id,trip_id,trip_headsign\nroute,service,trip,Fixture\n");
+        $zip->addFromString('stop_times.txt', "trip_id,arrival_time,departure_time,stop_id,stop_sequence,pickup_type,drop_off_type\ntrip,06:00:00,06:00:00,$stopId,1,0,0\ntrip,06:01:00,06:01:00,$stopId,2,0,0\n");
         $zip->close();
         return $path;
     }

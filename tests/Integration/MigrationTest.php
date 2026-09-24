@@ -30,7 +30,22 @@ final class MigrationTest extends KernelTestCase
                 }
             }
             $tables = $this->listCurrentSchemaTableNames($connection);
-            self::assertSame(['accommodation', 'data_source', 'emission_factor', 'environmental_evidence', 'journey_leg', 'journey_scenario', 'place', 'place_external_reference', 'place_import'], $tables);
+            self::assertSame([
+                'accommodation',
+                'data_source',
+                'emission_factor',
+                'environmental_evidence',
+                'gtfs_route',
+                'gtfs_service',
+                'gtfs_service_exception',
+                'gtfs_stop_time',
+                'gtfs_trip',
+                'journey_leg',
+                'journey_scenario',
+                'place',
+                'place_external_reference',
+                'place_import',
+            ], $tables);
             foreach ($tables as $table) {
                 self::assertSame(0, (int) $connection->fetchOne('SELECT COUNT(*) FROM '.$table));
             }

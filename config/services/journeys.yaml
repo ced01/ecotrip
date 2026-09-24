@@ -1,0 +1,13 @@
+parameters:
+  env(ECOTRIP_JOURNEY_PROVIDER): 'demo'
+
+services:
+  App\Journey\JourneyProviderFactory:
+    autowire: true
+    arguments:
+      $provider: '%env(ECOTRIP_JOURNEY_PROVIDER)%'
+
+  App\Provider\JourneyProvider:
+    factory: ['@App\Journey\JourneyProviderFactory', 'create']
+
+  App\Journey\JourneyScheduleRepository: '@App\Journey\PostgresJourneyScheduleRepository'

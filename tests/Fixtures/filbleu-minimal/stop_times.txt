@@ -1,0 +1,3 @@
+trip_id,arrival_time,departure_time,stop_id,stop_sequence,pickup_type,drop_off_type
+"#JDD-1012#2056848#1991409-Hiver-Sco_14Sept26#0#SEMAINE#272179","05:22:00","05:22:00","TTR:GAVNB-1",21,0,0
+"#JDD-1012#2056848#1991409-Hiver-Sco_14Sept26#0#SEMAINE#272179","05:24:00","05:24:00","TTR:JJOUB-1",22,0,0

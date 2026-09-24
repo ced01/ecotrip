@@ -2,8 +2,8 @@
   "openapi": "3.0.3",
   "info": {
     "title": "Ecotrip internal API",
-    "version": "1.2.0",
-    "description": "Contrat MVP. La méthodologie, les capabilities, les lieux, les trajets et les hébergements utilisent des données synthétiques hors ligne explicitement marquées demo. Aucun compte, réservation, horaire ou offre réelle."
+    "version": "1.3.0",
+    "description": "Contrat MVP. Le mode par défaut demeure demo. Le fournisseur optionnel Fil Bleu expose des horaires théoriques directs de bus marqués real/verified, sans temps réel, distance, émission, prix ni réservation et sans fallback demo."
   },
   "servers": [
     {

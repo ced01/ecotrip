@@ -1,6 +1,6 @@
 # Sources de données
 
-## Fil Bleu / Tours Métropole — catalogue optionnel de lieux réels
+## Fil Bleu / Tours Métropole — lieux et horaires théoriques optionnels
 
 - Catalogue officiel : <https://www.data.gouv.fr/datasets/fil-bleu-syndicat-des-mobilites-gtfs-gtfs-rt>
 - Artefact : <https://data.tours-metropole.fr/api/v2/catalog/datasets/horaires-temps-reel-gtfsrt-reseau-filbleu-tmvl/alternative_exports/filbleu_gtfszip>
@@ -14,11 +14,11 @@
 
 Les IDs publics sont `filbleu-` suivi des 40 premiers caractères hexadécimaux de `SHA-256("filbleu-gtfs" + NUL + stop_id)`. Cette fonction est opaque, déterministe et indépendante de l'ordre. La table de référence conserve le `stop_id` exact; aucun ID externe brut n'est exposé comme ID EcoTrip. Les suppressions amont désactivent la référence sans suppression ni réaffectation.
 
-Limites : il s'agit d'un référentiel d'arrêts et non d'un géocodeur, d'une promesse de desserte, d'horaires temps réel, d'un prix ou d'une réservation. Le mode réel des trajets n'est pas activé par ce catalogue. Voir le README pour le téléchargement, la vérification, l'import, le remplacement non destructif et le rollback transactionnel.
+L'import commun conserve aussi routes, services, exceptions, trips et stop_times dans un snapshot horaire immuable. La recherche locale couvre seulement les bus `route_type=3` directs entre points physiques enfants de stations, avec calendrier, exceptions, règles pickup/drop-off et horaires `>24h` en `Europe/Paris`. Elle ne fait aucun appel réseau. Limites : aucun temps réel, correspondance, train, prix, réservation, distance calculée ou émission carbone. Voir le README pour le téléchargement, la vérification et le rollback transactionnel.
 
 ## État actuel
 
-Le catalogue Fil Bleu est la seule source réelle intégrée et demeure optionnel. Par défaut, aucune donnée métier n'est chargée en base et tous les domaines restent démo. Les objets `demo-*` de `docs/examples/` sont synthétiques : ils servent uniquement à stabiliser le contrat et ne doivent jamais être affichés comme horaires, disponibilités, prix, labels ou performances environnementales réels. La source déclarative `synthetic-tests`, clairement marquée `demo`, n’existe que dans les tests arithmétiques. L’adaptateur d’hébergements reste explicitement synthétique et hors ligne.
+Fil Bleu est la seule source réelle intégrée et demeure optionnelle pour les lieux et trajets directs. Par défaut, aucune donnée métier n'est chargée en base et tous les fournisseurs restent démo. Les objets `demo-*` de `docs/examples/` sont synthétiques : ils servent uniquement à stabiliser le contrat et ne doivent jamais être affichés comme horaires, disponibilités, prix, labels ou performances environnementales réels. La source déclarative `synthetic-tests`, clairement marquée `demo`, n’existe que dans les tests arithmétiques. L’adaptateur d’hébergements reste explicitement synthétique et hors ligne.
 
 ## Sources candidates à instruire
 

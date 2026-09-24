@@ -1,6 +1,6 @@
 # EcoTrip — démonstrateur hors ligne reproductible
 
-EcoTrip est un MVP Symfony 7.4/PHP 8.4 de comparaison de voyages. L’interface, les trajets, les hébergements et les facteurs carbone livrés sont **des scénarios synthétiques de démonstration**. Ils ne représentent ni horaire, disponibilité, prix, label, réservation, paiement, ni donnée d’un fournisseur réel. Il n’existe aucun fallback silencieux vers ou depuis un fournisseur réel.
+EcoTrip est un MVP Symfony 7.4/PHP 8.4 de comparaison de voyages. Le mode par défaut reste une démonstration synthétique. Un fournisseur optionnel expose toutefois les horaires théoriques directs de bus Fil Bleu importés localement. Il ne représente ni temps réel, disponibilité, prix, réservation, paiement, ni facteur carbone. Il n’existe aucun fallback silencieux entre fournisseurs réel et démo.
 
 ## Prérequis et configuration
 
@@ -45,9 +45,9 @@ docker compose --env-file .env.local run --rm app php bin/console doctrine:migra
 
 Aucune fixture de base n’est à charger pour le mode démo. Une petite fixture Fil Bleu attribuée est conservée dans `tests/Fixtures/filbleu-minimal/`; elle sert exclusivement aux tests et n'est pas présentée comme un feed complet.
 
-## Catalogue de lieux Fil Bleu optionnel
+## Catalogue et trajets Fil Bleu optionnels
 
-Le fournisseur de lieux reste `demo` par défaut et la page d'accueil, la bannière, les trajets et les autres domaines restent démo. Le catalogue réel est une activation **explicite et indépendante** :
+Les fournisseurs de lieux et trajets restent `demo` par défaut; la page d'accueil, la bannière, les capabilities et les autres domaines restent démo. Chaque fournisseur réel est une activation **explicite et indépendante** :
 
 ```bash
 curl --fail --location --output /tmp/filbleu.gtfs.zip \
@@ -59,9 +59,11 @@ docker compose --env-file .env.local run --rm -v /tmp/filbleu.gtfs.zip:/tmp/filb
   --sha256=1d59de1c3fb6f3daba2c0cef0f7b878d268cd1a5093617392711b2dabccc7c22
 ```
 
-Définir ensuite `ECOTRIP_PLACE_PROVIDER=filbleu` dans `.env.local` et recréer le conteneur applicatif. `demo` est l'unique défaut. Une valeur inconnue échoue au démarrage du service; `filbleu` sans import répond explicitement `503`, sans fallback. L'import exige un fichier local, un `feed_version` et un checksum attendus. Il accepte explicitement le nom non standard `feed_infos.txt` observé dans ce feed, mais refuse toute autre structure incomplète, ligne obligatoire invalide, doublon contradictoire ou collision d'identité.
+Définir ensuite `ECOTRIP_PLACE_PROVIDER=filbleu` et `ECOTRIP_JOURNEY_PROVIDER=filbleu` dans `.env.local`, puis recréer le conteneur applicatif. Chaque sélection est indépendante et vaut `demo` par défaut. Une valeur inconnue échoue au démarrage; `filbleu` sans import complet répond explicitement `503`, sans fallback. Un catalogue démo est incompatible avec les IDs attendus par le fournisseur de trajets Fil Bleu et produit `out_of_coverage`. L'import exige un fichier local, un `feed_version` et un checksum attendus. Il accepte explicitement le nom non standard `feed_infos.txt` observé dans ce feed, mais refuse toute structure incomplète, FK logique inconnue, séquence dupliquée, ligne obligatoire invalide ou collision d'identité.
 
-Chaque import est une transaction : source, journal, lieux et références sont tous validés ou tous annulés. Réimporter le même snapshot est idempotent pour le catalogue et les IDs, tout en ajoutant une ligne d'audit. Les stations absentes sont désactivées sans suppression; leur réapparition réactive le même ID. Une mise à jour s'effectue avec la nouvelle version et son checksum vérifié, jamais en effaçant le volume. Le feed annonce une mise à jour au maximum quotidienne; l'opérateur choisit la fréquence et conserve les snapshots/checksums nécessaires à son audit.
+Chaque import est une transaction unique : source, journal, lieux, références, routes, calendriers, exceptions, trips et stop_times sont tous validés ou tous annulés. `stop_times.txt` est lu en streaming et inséré par lots bornés. Réimporter le même snapshot est idempotent pour le catalogue et les IDs, tout en ajoutant une ligne d'audit et un snapshot horaire immuable. Les stations absentes sont désactivées sans suppression; leur réapparition réactive le même ID. Une mise à jour s'effectue avec la nouvelle version et son checksum vérifié, jamais en effaçant le volume.
+
+La première couverture trajet est volontairement étroite : bus urbains `route_type=3`, trajets directs entre points physiques enfants des deux stations, calendrier et exceptions GTFS, pickup/drop-off et heures après minuit (`>24h`) en `Europe/Paris`. Au plus 20 résultats sont triés par départ, durée et identité stable. Les distances restent `null`/`unknown`; les émissions valent `unavailable`, `null` et `comparable=false`. Aucun appel réseau n'est effectué pendant une recherche.
 
 ## Développement et contrôles
 
@@ -108,10 +110,10 @@ Le smoke vérifie réellement l’accueil HTML, `/health`, capabilities, places,
 ## Modes et limites connues
 
 - `capabilities.mode`, l’UI, les résultats et les documents annoncent `demo` ; les provenances valent `demo`.
-- `real` désigne uniquement un adaptateur réel futur ; aucun n’est configuré ici.
+- `real` désigne le fournisseur Fil Bleu optionnel pour les trajets directs de bus théoriques; capabilities et UI restent volontairement en démo jusqu'à leur tâche d'intégration.
 - `unavailable`/`provider_unavailable` est exposé en `503`, jamais remplacé par les fixtures démo.
 - Les paires couvertes, 9 voyageurs maximum, corps JSON de 16 KiB, 20 recherches/minute/adresse et absence de réservation sont publiés par `/api/v1/capabilities`.
-- La sortie du mode démo est volontairement hors périmètre : TASK-0009 à TASK-0013 devront intégrer et qualifier les sources réelles, leur provenance, leur indisponibilité et leur exploitation, sans modifier silencieusement le sens des statuts.
+- Les trains, correspondances, prix, réservation, temps réel, distances et émissions réelles restent hors périmètre.
 
 Voir aussi [`docs/data-sources.md`](docs/data-sources.md), [`docs/methodology.md`](docs/methodology.md), [`docs/architecture.md`](docs/architecture.md) et [`docs/openapi.yaml`](docs/openapi.yaml).
 
