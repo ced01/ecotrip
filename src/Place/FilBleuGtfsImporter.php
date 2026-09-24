@@ -115,6 +115,13 @@ SQL, ['source'=>self::SOURCE_ID,'provider'=>self::PROVIDER_KEY,'version'=>$versi
         foreach ($this->csvStream($zip,'stop_times.txt') as $r) {
             $trip=trim($r['trip_id'] ?? ''); $stop=trim($r['stop_id'] ?? '');
             if (!isset($trips[$trip]) || !isset($stops[$stop])) throw new \InvalidArgumentException('Stop time references an unknown trip or stop.');
+            $routeId=trim($trips[$trip]['route_id'] ?? '');
+            if ($this->integer($routes[$routeId]['route_type'] ?? '',0,999,'route_type') === 3) {
+                $stopRow=$stops[$stop]; $parent=$stopRow['parent'];
+                $commercialStation=$stopRow['locationType'] === 1
+                    || ($stopRow['locationType'] === 0 && $parent !== '' && isset($stops[$parent]) && $stops[$parent]['locationType'] === 1);
+                if (!$commercialStation) throw new \InvalidArgumentException('Every stop time of an exploited trip must resolve to a commercial station.');
+            }
             $arrival=$this->time($r['arrival_time'] ?? ''); $departure=$this->time($r['departure_time'] ?? '');
             if ($departure < $arrival) throw new \InvalidArgumentException('Departure precedes arrival in stop_times.txt.');
             $batch[]=['import_id'=>$importId,'trip_id'=>$trip,'stop_id'=>$stop,'stop_sequence'=>$this->integer($r['stop_sequence'] ?? '',0,2147483647,'stop_sequence'),'arrival_seconds'=>$arrival,'departure_seconds'=>$departure,'pickup_type'=>$this->optionalType($r['pickup_type'] ?? ''),'drop_off_type'=>$this->optionalType($r['drop_off_type'] ?? '')];

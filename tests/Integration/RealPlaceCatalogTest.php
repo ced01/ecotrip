@@ -187,6 +187,109 @@ final class RealPlaceCatalogTest extends KernelTestCase
     }
 
     #[Test]
+    public function orphanIntermediateStopRejectsTheImportAndRollsBackEveryMutation(): void
+    {
+        $importer = new FilBleuGtfsImporter($this->db);
+        $valid = $this->documentedFixtureZip();
+        $importer->import($valid, '10048_164382514', hash_file('sha256', $valid));
+        $before = $this->databaseCounts();
+
+        $fixtureDirectory = dirname(__DIR__).'/Fixtures/filbleu-minimal';
+        $corrupt = $this->documentedFixtureZip();
+        $zip = new \ZipArchive();
+        self::assertTrue($zip->open($corrupt));
+        $stops = (string) file_get_contents($fixtureDirectory.'/stops.txt');
+        $stops .= "\"orphan-platform\",\"Orphan\",\"47.4\",\"0.7\",\"0\",\"\",\"Europe/Paris\"\n";
+        $trip = '#JDD-1012#2056848#1991409-Hiver-Sco_14Sept26#0#SEMAINE#272179';
+        $stopTimes = "trip_id,arrival_time,departure_time,stop_id,stop_sequence,pickup_type,drop_off_type\n";
+        $stopTimes .= "\"$trip\",\"05:22:00\",\"05:22:00\",\"TTR:GAVNB-1\",21,0,0\n";
+        $stopTimes .= "\"$trip\",\"05:23:00\",\"05:23:00\",\"orphan-platform\",22,0,0\n";
+        $stopTimes .= "\"$trip\",\"05:24:00\",\"05:24:00\",\"TTR:JJOUB-1\",23,0,0\n";
+        self::assertTrue($zip->addFromString('stops.txt', $stops));
+        self::assertTrue($zip->addFromString('stop_times.txt', $stopTimes));
+        $zip->close();
+
+        try {
+            $importer->import($corrupt, '10048_164382514', hash_file('sha256', $corrupt));
+            self::fail('An exploited trip with an orphan physical stop must fail closed.');
+        } catch (\InvalidArgumentException $error) {
+            self::assertStringContainsString('commercial station', $error->getMessage());
+        }
+
+        self::assertSame($before, $this->databaseCounts());
+        self::assertSame(9, (int) $this->db->fetchOne("SELECT count(*) FROM place_external_reference WHERE active=TRUE"));
+    }
+
+    #[Test]
+    public function unknownRouteRejectsImportWithoutPublishingASnapshot(): void
+    {
+        $zipPath = $this->documentedFixtureZip();
+        $zip = new \ZipArchive();
+        self::assertTrue($zip->open($zipPath));
+        self::assertTrue($zip->addFromString('trips.txt', "route_id,service_id,trip_id,trip_headsign\nunknown-route,service,trip,Fixture\n"));
+        $zip->close();
+
+        $this->expectException(\InvalidArgumentException::class);
+        try {
+            (new FilBleuGtfsImporter($this->db))->import($zipPath, '10048_164382514', hash_file('sha256', $zipPath));
+        } finally {
+            self::assertSame(0, (int) $this->db->fetchOne('SELECT count(*) FROM place_import'));
+            self::assertSame(0, (int) $this->db->fetchOne('SELECT count(*) FROM place'));
+        }
+    }
+
+    #[Test]
+    public function absentJourneyImportIsUnavailableRatherThanEmpty(): void
+    {
+        $repository = new PostgresJourneyScheduleRepository($this->db);
+
+        $this->expectException(\App\Provider\ProviderUnavailable::class);
+        $repository->direct('station-a', 'station-b', new \DateTimeImmutable('2026-09-23'));
+    }
+
+    #[Test]
+    public function corruptedJourneyImportIsUnavailableRatherThanEmpty(): void
+    {
+        $zip = $this->documentedFixtureZip();
+        (new FilBleuGtfsImporter($this->db))->import($zip, '10048_164382514', hash_file('sha256', $zip));
+        $this->db->update('data_source', ['license'=>'unexpected'], ['id'=>FilBleuGtfsImporter::SOURCE_ID]);
+
+        $this->expectException(\App\Provider\ProviderUnavailable::class);
+        (new PostgresJourneyScheduleRepository($this->db))->direct('TTR:AC-GATO', 'TTR:AC-JJAU', new \DateTimeImmutable('2026-09-23'));
+    }
+
+    #[Test]
+    public function repositorySortLimitAndPublicIdsStayStableForRepeatedStationPairs(): void
+    {
+        $zip = $this->documentedFixtureZip();
+        $import = (new FilBleuGtfsImporter($this->db))->import($zip, '10048_164382514', hash_file('sha256', $zip));
+        $trip = (string) $this->db->fetchOne('SELECT external_id FROM gtfs_trip WHERE import_id=:import', ['import'=>$import->importId]);
+        $this->db->executeStatement('DELETE FROM gtfs_stop_time WHERE import_id=:import', ['import'=>$import->importId]);
+        for ($pair = 0; $pair < 11; ++$pair) {
+            $departureSequence = $pair * 2 + 1;
+            $this->db->insert('gtfs_stop_time', ['import_id'=>$import->importId,'trip_id'=>$trip,'stop_id'=>'TTR:GAVNB-1','stop_sequence'=>$departureSequence,'arrival_seconds'=>21600,'departure_seconds'=>21600,'pickup_type'=>0,'drop_off_type'=>0]);
+            $this->db->insert('gtfs_stop_time', ['import_id'=>$import->importId,'trip_id'=>$trip,'stop_id'=>'TTR:JJOUB-1','stop_sequence'=>$departureSequence + 1,'arrival_seconds'=>21900,'departure_seconds'=>21900,'pickup_type'=>0,'drop_off_type'=>0]);
+        }
+
+        $repository = new PostgresJourneyScheduleRepository($this->db);
+        $rows = $repository->direct('TTR:AC-GATO', 'TTR:AC-JJAU', new \DateTimeImmutable('2026-09-23'));
+        self::assertCount(20, $rows);
+        $sequencePairs = array_map(static fn(array $row): array => [$row['departureSequence'], $row['arrivalSequence']], $rows);
+        $expected = [];
+        for ($departure = 1; $departure <= 21 && count($expected) < 20; $departure += 2) {
+            for ($arrival = $departure + 1; $arrival <= 22 && count($expected) < 20; $arrival += 2) $expected[] = [$departure, $arrival];
+        }
+        self::assertSame($expected, $sequencePairs);
+
+        $provider = new FilBleuJourneyProvider(new PostgresPlaceReferenceResolver($this->db), $repository);
+        $query = new JourneyQuery(FilBleuGtfsImporter::internalId('TTR:AC-GATO'), FilBleuGtfsImporter::internalId('TTR:AC-JJAU'), new \DateTimeImmutable('2026-09-23'), 1, ['public_transport']);
+        $firstIds = array_column($provider->search($query)->itineraries, 'id');
+        $secondIds = array_column($provider->search($query)->itineraries, 'id');
+        self::assertSame($firstIds, $secondIds);
+        self::assertCount(20, array_unique($firstIds));
+    }
+
+    #[Test]
     public function consoleCommandImportsTheRequestedFeedVersionInsteadOfTriggeringSymfonyVersionOutput(): void
     {
         $zip = $this->fixtureZip([
@@ -203,6 +306,16 @@ final class RealPlaceCatalogTest extends KernelTestCase
         self::assertSame(Command::SUCCESS, $status);
         self::assertStringContainsString('Imported feed fixture-v1', $tester->getDisplay());
         self::assertSame(1, (int) $this->db->fetchOne('SELECT count(*) FROM place_import'));
+    }
+
+    /** @return array<string, int> */
+    private function databaseCounts(): array
+    {
+        $tables = ['data_source', 'place_import', 'place', 'place_external_reference', 'gtfs_route', 'gtfs_service', 'gtfs_service_exception', 'gtfs_trip', 'gtfs_stop_time'];
+        $counts = [];
+        foreach ($tables as $table) $counts[$table] = (int) $this->db->fetchOne('SELECT count(*) FROM '.$table);
+
+        return $counts;
     }
 
     private function documentedFixtureZip(): string

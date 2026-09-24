@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 namespace App\Tests\Api;
 
+use App\Journey\FilBleuJourneyProvider;
+use App\Journey\JourneyScheduleRepository;
 use App\Provider\JourneyProvider;
 use App\Provider\JourneyProviderMetadata;
+use App\Provider\PlaceReferenceResolver;
 use App\Provider\ProviderUnavailable;
 use App\Trip\DirectionResult;
 use App\Trip\JourneyQuery;
@@ -168,6 +171,27 @@ final class JourneySearchTest extends WebTestCase
         $client->jsonRequest('POST', '/api/v1/journeys/search', $this->request(['train']));
         $this->assertProblem($client->getResponse(), 503, 'provider_unavailable');
         self::assertStringNotContainsString('secret', $client->getResponse()->getContent());
+    }
+
+    public function testResolverStorageFailureTraversesTheRealProviderChainAsRedacted503WithoutFallback(): void
+    {
+        $client = self::createClient([], ['REMOTE_ADDR' => $this->clientIp]);
+        $resolver = new class implements PlaceReferenceResolver {
+            public function toExternalId(string $placeId, string $providerKey): ?string { throw new \RuntimeException('secret resolver database detail'); }
+            public function toInternalId(string $providerKey, string $externalId): ?string { throw new \LogicException('not reached'); }
+        };
+        $repository = new class implements JourneyScheduleRepository {
+            public function direct(string $originStation, string $destinationStation, \DateTimeImmutable $date): array { throw new \LogicException('no schedule fallback'); }
+            public function source(): array { throw new \LogicException('no metadata fallback'); }
+        };
+        self::getContainer()->set(JourneyProvider::class, new FilBleuJourneyProvider($resolver, $repository));
+
+        $client->jsonRequest('POST', '/api/v1/journeys/search', $this->request(['public_transport']));
+
+        $this->assertProblem($client->getResponse(), 503, 'provider_unavailable');
+        self::assertStringNotContainsString('secret', $client->getResponse()->getContent());
+        self::assertStringNotContainsString('resolver', $client->getResponse()->getContent());
+        self::assertStringNotContainsString('demo', $client->getResponse()->getContent());
     }
 
 

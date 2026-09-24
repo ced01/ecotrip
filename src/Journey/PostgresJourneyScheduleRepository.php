@@ -16,16 +16,24 @@ final readonly class PostgresJourneyScheduleRepository implements JourneySchedul
     {
         $weekday = strtolower($date->format('l'));
         if (!in_array($weekday, ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'], true)) throw new \LogicException('Invalid weekday.');
+        // Distinguish a valid snapshot with no matching service from absent or
+        // corrupt imported journey data.
+        $this->source();
         try {
             $rows = $this->connection->fetchAllAssociative(<<<SQL
 WITH snapshot AS (
  SELECT id FROM place_import WHERE provider_key=:provider AND journey_ready=TRUE ORDER BY id DESC LIMIT 1
 ), origin_stops AS (
- SELECT external_id FROM place_external_reference WHERE provider_key=:provider AND parent_external_id=:origin AND location_type=0 AND active=TRUE
+ SELECT external_id FROM place_external_reference
+ WHERE provider_key=:provider AND active=TRUE
+   AND ((external_id=:origin AND location_type=1) OR (parent_external_id=:origin AND location_type=0))
 ), destination_stops AS (
- SELECT external_id FROM place_external_reference WHERE provider_key=:provider AND parent_external_id=:destination AND location_type=0 AND active=TRUE
+ SELECT external_id FROM place_external_reference
+ WHERE provider_key=:provider AND active=TRUE
+   AND ((external_id=:destination AND location_type=1) OR (parent_external_id=:destination AND location_type=0))
 )
 SELECT t.external_id AS trip, COALESCE(NULLIF(r.short_name,''), r.long_name) AS route_name,
+       departure.stop_sequence AS departure_sequence, arrival.stop_sequence AS arrival_sequence,
        departure.departure_seconds, arrival.arrival_seconds
 FROM snapshot s
 JOIN gtfs_trip t ON t.import_id=s.id
@@ -39,7 +47,14 @@ WHERE CASE WHEN exception.exception_type IS NOT NULL THEN exception.exception_ty
 ORDER BY departure.departure_seconds, (arrival.arrival_seconds-departure.departure_seconds), t.external_id, departure.stop_sequence, arrival.stop_sequence
 LIMIT 20
 SQL, ['provider'=>FilBleuGtfsImporter::PROVIDER_KEY,'origin'=>$originStation,'destination'=>$destinationStation,'date'=>$date->format('Y-m-d')]);
-            return array_map(static fn(array $row): array => ['trip'=>(string)$row['trip'],'routeName'=>(string)$row['route_name'],'departureSeconds'=>(int)$row['departure_seconds'],'arrivalSeconds'=>(int)$row['arrival_seconds']], $rows);
+            return array_map(static fn(array $row): array => [
+                'trip'=>(string)$row['trip'],
+                'routeName'=>(string)$row['route_name'],
+                'departureSequence'=>(int)$row['departure_sequence'],
+                'arrivalSequence'=>(int)$row['arrival_sequence'],
+                'departureSeconds'=>(int)$row['departure_seconds'],
+                'arrivalSeconds'=>(int)$row['arrival_seconds'],
+            ], $rows);
         } catch (\Throwable $error) {
             throw new ProviderUnavailable('Fil Bleu schedule storage is unavailable.', 0, $error);
         }
