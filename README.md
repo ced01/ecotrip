@@ -107,13 +107,30 @@ BASE_URL=http://127.0.0.1:18081 python3 tools/smoke-http.py
 
 Le smoke vérifie réellement l’accueil HTML, `/health`, capabilities, places, méthodologie, hébergements, recherche de trajet, une 404 Problem Details, les rejets `415`/`413`, ainsi que les fichiers CSS et JavaScript compilés et leurs types de média.
 
+## Import ADEME Base Carbone (optionnel, additif)
+
+Télécharger l’export V23.6 hors de l’application, puis vérifier le pin avant toute écriture :
+
+```bash
+sha256sum /chemin/base-carbone-v23.6.csv
+# attendu: 01472bc24743c0265b649407508dfce896f15a5c11c0f612f6b47a5625b02653
+
+docker compose --env-file .env.local --profile tools run --rm dev php bin/console app:emissions:import-ademe \
+  --file=/chemin/base-carbone-v23.6.csv --source-version=V23.6 \
+  --sha256=01472bc24743c0265b649407508dfce896f15a5c11c0f612f6b47a5625b02653
+```
+
+Le fichier doit être monté/lisible dans le conteneur (placer temporairement une copie hors Git sous le projet si nécessaire). La commande ne télécharge rien, valide l’ensemble avant insertion et rollback toute erreur. Une répétition identique est sans effet. Pour une publication suivante, ne jamais modifier/supprimer V23.6 : qualifier l’identifiant et le mapping, importer avec un nouveau `--source-version`, checksum et `--effective-from=AAAA-MM-JJ`, puis contrôler `emission_factor_import` et `emission_factor`.
+
+Après migration et import complet seulement, définir `ECOTRIP_EMISSION_FACTOR_PROVIDER=ademe` dans `.env.local` et redémarrer. Une valeur inconnue ou un import absent provoque une erreur explicite; aucun fallback `demo` n’existe. Le défaut reste `demo`.
+
 ## Modes et limites connues
 
 - `capabilities.mode`, l’UI, les résultats et les documents annoncent `demo` ; les provenances valent `demo`.
 - `real` désigne le fournisseur Fil Bleu optionnel pour les trajets directs de bus théoriques; capabilities et UI restent volontairement en démo jusqu'à leur tâche d'intégration.
 - `unavailable`/`provider_unavailable` est exposé en `503`, jamais remplacé par les fixtures démo.
 - Les paires couvertes, 9 voyageurs maximum, corps JSON de 16 KiB, 20 recherches/minute/adresse et absence de réservation sont publiés par `/api/v1/capabilities`.
-- Les trains, correspondances, prix, réservation, temps réel, distances et émissions réelles restent hors périmètre.
+- Les trains, correspondances, prix, réservation, temps réel et distances Fil Bleu restent hors périmètre; sans distance, leurs émissions restent indisponibles malgré le facteur ADEME optionnel.
 
 Voir aussi [`docs/data-sources.md`](docs/data-sources.md), [`docs/methodology.md`](docs/methodology.md), [`docs/architecture.md`](docs/architecture.md) et [`docs/openapi.yaml`](docs/openapi.yaml).
 

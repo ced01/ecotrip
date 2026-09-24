@@ -10,7 +10,7 @@ namespace App\Environmental;
  */
 final class EmissionEstimator
 {
-    public const METHODOLOGY_VERSION = 'carbon-estimation-v1';
+    public const METHODOLOGY_VERSION = 'carbon-estimation-v2';
 
     public function __construct(private readonly EmissionFactorRepository $factors)
     {
@@ -189,7 +189,7 @@ final class EmissionEstimator
     {
         $keys = [];
         foreach ($factors as $factor) {
-            $keys[] = implode('|', [$factor['unit'], $factor['scope'], $factor['status']]);
+            $keys[] = implode('|', [$factor['unit'], $factor['scope'], $factor['status'], $factor['version'], $factor['mappingMethod'] ?? 'legacy-v1']);
         }
         return count(array_unique($keys)) === 1;
     }
@@ -198,7 +198,7 @@ final class EmissionEstimator
     private function comparisonKey(array $factors, string $dataStatus): string
     {
         $factor = reset($factors);
-        return implode('|', [self::METHODOLOGY_VERSION, 'kgCO2e', $factor['unit'], $factor['scope'], $dataStatus, $factor['status']]);
+        return implode('|', [self::METHODOLOGY_VERSION, 'kgCO2e', $factor['unit'], $factor['scope'], $dataStatus, $factor['status'], $factor['version'], $factor['mappingMethod'] ?? 'legacy-v1']);
     }
 
     private function round(float $value): float

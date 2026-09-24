@@ -112,8 +112,8 @@
           "coveredDistanceKm": 405,
           "totalDistanceKm": 405,
           "comparable": true,
-          "comparisonKey": "carbon-estimation-v1|kgCO2e|kgCO2e/passenger-km|life_cycle|demo|synthetic_test",
-          "methodologyVersion": "carbon-estimation-v1",
+          "comparisonKey": "carbon-estimation-v2|kgCO2e|kgCO2e/passenger-km|life_cycle|demo|synthetic_test|journey-demo-v1|demo-synthetic-v1",
+          "methodologyVersion": "carbon-estimation-v2",
           "assumptions": [],
           "legs": [
             {
@@ -147,7 +147,22 @@
               "occupancy": null,
               "version": "journey-demo-v1",
               "sourceId": "demo-journey-scenarios",
-              "status": "synthetic_test"
+              "status": "synthetic_test",
+              "mappingMethod": "demo-synthetic-v1",
+              "externalId": null,
+              "sourceValue": null,
+              "sourceUnit": null,
+              "sourceStatus": null,
+              "sourceName": null,
+              "sourceAttribute": null,
+              "sourceGeography": null,
+              "sourcePeriod": null,
+              "upstreamSource": null,
+              "sourceUrl": null,
+              "sourceLicense": null,
+              "accessedAt": null,
+              "checksumSha256": null,
+              "mappingNotes": null
             }
           ]
         },
@@ -220,8 +235,8 @@
           "coveredDistanceKm": 465,
           "totalDistanceKm": 465,
           "comparable": true,
-          "comparisonKey": "carbon-estimation-v1|kgCO2e|kgCO2e/passenger-km|life_cycle|demo|synthetic_test",
-          "methodologyVersion": "carbon-estimation-v1",
+          "comparisonKey": "carbon-estimation-v2|kgCO2e|kgCO2e/passenger-km|life_cycle|demo|synthetic_test|journey-demo-v1|demo-synthetic-v1",
+          "methodologyVersion": "carbon-estimation-v2",
           "assumptions": [],
           "legs": [
             {
@@ -247,7 +262,22 @@
               "occupancy": null,
               "version": "journey-demo-v1",
               "sourceId": "demo-journey-scenarios",
-              "status": "synthetic_test"
+              "status": "synthetic_test",
+              "mappingMethod": "demo-synthetic-v1",
+              "externalId": null,
+              "sourceValue": null,
+              "sourceUnit": null,
+              "sourceStatus": null,
+              "sourceName": null,
+              "sourceAttribute": null,
+              "sourceGeography": null,
+              "sourcePeriod": null,
+              "upstreamSource": null,
+              "sourceUrl": null,
+              "sourceLicense": null,
+              "accessedAt": null,
+              "checksumSha256": null,
+              "mappingNotes": null
             }
           ]
         },

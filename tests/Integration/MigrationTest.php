@@ -34,6 +34,7 @@ final class MigrationTest extends KernelTestCase
                 'accommodation',
                 'data_source',
                 'emission_factor',
+                'emission_factor_import',
                 'environmental_evidence',
                 'gtfs_route',
                 'gtfs_service',

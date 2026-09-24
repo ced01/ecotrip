@@ -48,7 +48,7 @@ final readonly class FilBleuJourneyProvider implements JourneyProvider
                 'distance'=>['km'=>null,'method'=>'unknown','provenance'=>$provenance],
                 'schedule'=>['departureAt'=>$departure->format(DATE_ATOM),'arrivalAt'=>$arrival->format(DATE_ATOM),'provenance'=>$provenance],'provenance'=>$provenance,
             ]],'durationMinutes'=>$duration,'transfers'=>0,'emissions'=>[
-                'status'=>'unavailable','kgCO2ePerTraveler'=>null,'kgCO2eGroup'=>null,'coveredDistanceKm'=>0.0,'totalDistanceKm'=>null,'comparable'=>false,'comparisonKey'=>null,'methodologyVersion'=>'carbon-estimation-v1','assumptions'=>[],'legs'=>[['legId'=>$legId,'status'=>'unavailable','kgCO2ePerTraveler'=>null,'kgCO2eGroup'=>null,'factorId'=>null,'reason'=>'Aucun facteur réel intégré avant TASK-0011.']],'factors'=>[],
+                'status'=>'unavailable','kgCO2ePerTraveler'=>null,'kgCO2eGroup'=>null,'coveredDistanceKm'=>0.0,'totalDistanceKm'=>null,'comparable'=>false,'comparisonKey'=>null,'methodologyVersion'=>\App\Environmental\EmissionEstimator::METHODOLOGY_VERSION,'assumptions'=>[],'legs'=>[['legId'=>$legId,'status'=>'unavailable','kgCO2ePerTraveler'=>null,'kgCO2eGroup'=>null,'factorId'=>null,'reason'=>'Distance Fil Bleu inconnue; aucun calcul de facteur n’est possible.']],'factors'=>[],
             ],'provenance'=>$provenance,'warnings'=>['Distance et émissions indisponibles; aucun calcul synthétique.']];
         }
         return new DirectionResult(DirectionStatus::Complete,$itineraries);

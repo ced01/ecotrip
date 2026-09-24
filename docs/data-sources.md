@@ -1,5 +1,18 @@
 # Sources de données
 
+## ADEME Base Carbone® — facteurs d’émission optionnels
+
+- Autorité : ADEME ; catalogue <https://data.ademe.fr/datasets/base-carboner> ; API de métadonnées <https://data.ademe.fr/data-fair/api/v1/datasets/base-carboner> ; export <https://data.ademe.fr/data-fair/api/v1/datasets/base-carboner/full>.
+- Publication épinglée : V23.6, 18 616 enregistrements, mise à jour portail 2026-06-30, accès 2026-09-24, fréquence annoncée irrégulière.
+- Licence : Licence Ouverte / Open Licence (Etalab).
+- Snapshot qualifié : 10 761 452 octets, SHA-256 `01472bc24743c0265b649407508dfce896f15a5c11c0f612f6b47a5625b02653`, CSV `;` Windows-1252 avec décimales françaises.
+- Sélection : identifiant `28000` seulement; valeur publiée `0,151 kgCO2e/passager.km`; source amont « UTP - Enquête TCU 2017 ». La ligne totale et ses postes carburant/fabrication justifient le périmètre `life_cycle`.
+- Applicabilité démographique du libellé « agglomération de plus de 250 000 habitants » : l’[INSEE, comparateur officiel, EPCI 243700754](https://www.insee.fr/fr/statistiques/1405599?geo=EPCI-243700754) publie **301 339 habitants en 2023** pour Tours Métropole Val de Loire (consulté le 2026-09-24). Le seuil est donc satisfait et le facteur est mappé explicitement à `FR-TM`, comme moyenne de cette classe démographique, jamais comme mesure propre à Fil Bleu. Si cette qualification ou les autres attributs épinglés divergent, l’import échoue au lieu d’activer un mapping implicite.
+
+L’import est local, transactionnel, versionné et épinglé par checksum; aucune recherche ne contacte ADEME. L’historique est additif. Un remplacement consiste à qualifier puis importer une **nouvelle** version/date effective, contrôler sa provenance et activer explicitement le provider; il ne faut ni écraser ni supprimer les versions précédentes. Voir `docs/methodology.md` et le README pour les commandes. La fréquence de contrôle suit chaque publication ADEME (irrégulière).
+
+Le fournisseur par défaut reste `demo`. Même en mode `ademe`, les trajets Fil Bleu conservent une émission indisponible car leur distance est inconnue.
+
 ## Fil Bleu / Tours Métropole — lieux et horaires théoriques optionnels
 
 - Catalogue officiel : <https://www.data.gouv.fr/datasets/fil-bleu-syndicat-des-mobilites-gtfs-gtfs-rt>

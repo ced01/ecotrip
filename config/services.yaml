@@ -4,6 +4,7 @@ parameters:
 imports:
   - { resource: services/places.yaml }
   - { resource: services/journeys.yaml }
+  - { resource: services/emissions.yaml }
 
 services:
   _defaults:
@@ -16,11 +17,11 @@ services:
       - '../src/Accommodation/'
       - '../src/Place/PlaceProviderFactory.php'
       - '../src/Journey/JourneyProviderFactory.php'
+      - '../src/Environmental/EmissionFactorRepositoryFactory.php'
 
   App\Provider\DemoAccommodationProvider: ~
   App\Provider\AccommodationProvider: '@App\Provider\DemoAccommodationProvider'
   App\Provider\CapabilitiesProvider: '@App\Demo\DemoPlaceCatalog'
-  App\Environmental\EmissionFactorRepository: '@App\Demo\DemoEmissionFactorRepository'
 
   App\Http\JourneySearchQuota:
     arguments:

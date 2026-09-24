@@ -167,6 +167,21 @@ final class EmissionEstimatorTest extends TestCase
         (new EmissionComparator())->compare($operation, $lifeCycle);
     }
 
+    public function testDifferentVersionsAndMappingMethodsAreNotComparable(): void
+    {
+        $v1 = self::factor('rail-v1', 0.01, 'kgCO2e/passenger-km', 'life_cycle');
+        $v1['version'] = 'V23.6';
+        $v1['mappingMethod'] = 'map-v1';
+        $v2 = $v1;
+        $v2['id'] = 'rail-v2';
+        $v2['version'] = 'V23.7';
+        $left = $this->singleLegEstimate($v1);
+        $right = $this->singleLegEstimate($v2);
+        self::assertNotSame($left['comparisonKey'], $right['comparisonKey']);
+        $this->expectException(\DomainException::class);
+        (new EmissionComparator())->compare($left, $right);
+    }
+
     #[DataProvider('invalidInputs')]
     public function testInvalidInputsAreRejected(array $legs, int $travelers): void
     {

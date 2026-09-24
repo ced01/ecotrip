@@ -19,6 +19,11 @@ final class DemoEmissionFactorRepository implements EmissionFactorRepository
             'mode' => $mode, 'subtype' => null, 'geography' => 'FR', 'validFrom' => '2026-01-01', 'validUntil' => null,
             'scope' => 'life_cycle', 'occupancy' => null, 'version' => 'journey-demo-v1', 'sourceId' => DemoData::SOURCE_ID,
             'status' => 'synthetic_test',
+            'mappingMethod' => 'demo-synthetic-v1',
+            'externalId' => null, 'sourceValue' => null, 'sourceUnit' => null, 'sourceStatus' => null,
+            'sourceName' => null, 'sourceAttribute' => null, 'sourceGeography' => null, 'sourcePeriod' => null,
+            'upstreamSource' => null, 'sourceUrl' => null, 'sourceLicense' => null, 'accessedAt' => null,
+            'checksumSha256' => null, 'mappingNotes' => null,
         ]];
     }
 }

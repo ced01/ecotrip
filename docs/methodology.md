@@ -2,43 +2,47 @@
 
 ## Statut et version
 
-La version `carbon-estimation-v1` implémente le calcul par étape et l’endpoint `GET /api/v1/methodology`. Son statut public est `demo` : aucun facteur environnemental réel n’est livré. Les nombres employés par les tests sont fictifs, portent le statut `synthetic_test` et référencent la source `synthetic-tests`; ils démontrent uniquement l’arithmétique et le contrat.
+`carbon-estimation-v2` ajoute des facteurs publiés, versionnés et auditables. L’expérience publique, la page d’accueil, les capabilities et la configuration par défaut restent `demo`. Le dépôt ADEME n’est utilisé qu’avec `ECOTRIP_EMISSION_FACTOR_PROVIDER=ademe`, après import complet; une erreur de configuration ou une base non initialisée échoue explicitement, sans fallback vers les facteurs démo.
 
-## Indicateur et calcul
+## Calcul et inconnues
 
-L’indicateur est le kilogramme de CO₂ équivalent (`kgCO2e`). Chaque étape conserve le facteur exact utilisé : valeur, unité, mode/sous-type, géographie, période de validité, périmètre, occupation, version, source et statut.
+L’indicateur est le kilogramme de CO₂ équivalent (`kgCO2e`). Pour une distance `d`, un facteur passager-km `f` et `n` voyageurs : individuel = `d × f`, groupe = `d × f × n`. Le moteur conserve les intermédiaires non arrondis, agrège, puis arrondit chaque montant exposé à 12 décimales (`PHP_ROUND_HALF_UP`). Une distance ou émission inconnue vaut `null`, jamais zéro.
 
-Pour une distance `d`, un facteur `f` et `n` voyageurs :
+Une étape n’est calculée que si le repository retourne exactement un candidat applicable au mode, sous-type, territoire et jour. Zéro candidat (absent, archivé, expiré, incompatible) ou plusieurs candidats (ambiguïté) donnent `unavailable`. Le repository ADEME sélectionne la publication dont la date effective est la plus récente sans dépasser le voyage; une égalité ambiguë reste multiple et donc indisponible. Il ne fait aucun appel réseau.
 
-- `kgCO2e/passenger-km` : individuel = `d × f`; groupe = `d × f × n` ;
-- `kgCO2e/vehicle-km` avec occupation explicite `o` : individuel = `d × f ÷ o`; groupe = `d × f ÷ o × n`.
+Fil Bleu fournit actuellement des horaires mais pas de distance. Ses émissions restent donc `unavailable`, y compris lorsque le facteur ADEME est chargé. Le facteur n’invente ni distance ni occupation.
 
-L’occupation est donc une hypothèse d’allocation moyenne, visible dans `assumptions`; elle ne représente ni le remplissage observé ni le nombre de véhicules réservé par le groupe. Un facteur véhicule-km sans occupation est indisponible. Les calculs internes conservent les montants intermédiaires non arrondis : le total individuel est leur somme et le total groupe est cette somme non arrondie multipliée par le nombre de voyageurs. Chaque montant exposé (étape ou total) est ensuite arrondi indépendamment à 12 décimales, une seule fois et au plus près selon la règle PHP `round` (`PHP_ROUND_HALF_UP` par défaut). Un total peut donc conserver des fractions cumulées invisibles dans l’affichage arrondi des étapes; il n’est jamais obtenu en additionnant ces affichages.
+## Mapping ADEME V23.6
 
-Le dépôt fournit les candidats correspondant au mode, sous-type, territoire et jour. Une étape n’est calculée que si exactement un facteur applicable reste sélectionné. Zéro ou plusieurs candidats donnent une raison explicite et évitent un choix implicite.
+L’unique identifiant autorisé est `28000`, ligne `Elément`, statut `Valide générique` : « Autobus moyen — Agglomération de plus de 250 000 habitants », France continentale, `0,151 kgCO2e/passager.km`, source amont « UTP - Enquête TCU 2017 ».
 
-## Statuts, couverture et valeurs inconnues
+- unité : conversion littérale documentée vers `kgCO2e/passenger-km` ;
+- mode : `public_transport`, sous-type générique `null`, géographie EcoTrip `FR-TM` (Tours Métropole) ;
+- périmètre : `life_cycle`, car l’élément ADEME est « décomposé par poste » et l’export officiel détaille un poste carburant (amont/combustion) et un poste fabrication ;
+- période source : `avr-22` est conservée textuellement. Elle n’est **pas** transformée en date de fin ;
+- validité EcoTrip : date effective explicite de publication/import (`2026-06-30` par défaut pour V23.6), sans fin inventée ; une version ultérieure prend effet uniquement à sa propre date explicite ;
+- méthode : `ademe-v23.6-explicit-map-v1`, stockée avec les notes, le checksum et toutes les métadonnées sources.
 
-- `complete` : toutes les étapes de provenance réelle sont calculées avec des facteurs vérifiés ;
-- `demo` : au moins une émission calculée provient d’un trajet `demo` ou d’un facteur synthétique, y compris lorsque la couverture est incomplète ;
-- `partial` : certaines étapes seulement sont calculées, sans aucune provenance de démonstration ;
-- `unavailable` : aucune étape ne peut être calculée.
+La catégorie démographique est cohérente avec la population officielle de Tours Métropole, mais reste une moyenne UTP de réseau urbain : elle ne constitue pas une mesure spécifique d’un bus ou trajet Fil Bleu. Tout changement de libellé, statut, unité, géographie, structure ou identifiant fait échouer l’import.
 
-Chaque étape calculée vaut `demo` dès que le trajet est de démonstration ou que son facteur est synthétique; sa `reason` indique laquelle de ces provenances impose ce statut. Elle vaut sinon `complete`; une étape non calculable reste `unavailable` avec sa raison. Sur un trajet `demo` partiellement couvert, le statut global reste donc `demo`, tandis que les étapes indisponibles et `comparable: false` rendent la couverture partielle explicite sans masquer la provenance. Une somme partielle porte uniquement sur les étapes couvertes. `coveredDistanceKm` est toujours explicite; `totalDistanceKm` vaut `null` dès qu’une distance est inconnue. Une émission inconnue vaut `null`, jamais zéro. Une distance réellement nulle avec un facteur applicable produit en revanche une émission numérique nulle.
+## Historique, provenance et contrôles
 
-## Comparabilité
+L’identité historique inclut source, identifiant externe et version de publication. Une réimportation au même checksum renvoie l’import existant sans mutation. Une même version avec un checksum différent, un doublon contradictoire, un identifiant attendu absent, un checksum/encodage/séparateur/colonnes/date/statut/unité/valeur/mapping invalide fait échouer toute la transaction.
 
-Une estimation est comparable uniquement si elle est complète et si tous ses facteurs partagent unité, périmètre (`operation` ou `life_cycle`) et statut de facteur. Sa `comparisonKey` encode la version de méthodologie, l’indicateur, l’unité, le périmètre, la provenance du trajet (`real` ou `demo`) et le statut des facteurs. Deux estimations homogènes de démonstration peuvent donc être comparées entre elles, mais une estimation réelle et une estimation de démonstration n’ont jamais la même clé, même si elles emploient le même facteur vérifié. Le comparateur refuse explicitement :
+Chaque facteur restitue valeur et unité source/normalisées, identifiant, noms, statut, géographie et période sources, mode, périmètre, éventuelle occupation, version, source amont, URL, licence, date d’accès, checksum et notes/méthode de mapping.
 
-- les estimations partielles ou indisponibles ;
-- les unités différentes ;
-- les périmètres opération et cycle de vie différents ;
-- les méthodes ou statuts réel/démonstration différents.
+## Statuts et comparabilité
 
-Un statut `demo` reste visible même lorsqu’une comparaison arithmétique entre deux scénarios synthétiques homogènes est possible. Il ne constitue jamais une affirmation environnementale réelle.
+`complete`, `partial`, `unavailable` et `demo` restent distincts du statut du trajet. Une estimation n’est comparable que si elle est complète et homogène. La clé v2 encode indicateur, unité, périmètre, provenance trajet, statut facteur, version source et méthode de mapping. Le comparateur refuse les différences de portée, unité, version, méthode ou provenance et toutes les couvertures partielles.
 
-## Limites
+## Sources et limites
 
-La méthode ne constitue ni analyse de cycle de vie complète, ni conseil de réservation. Elle ne couvre pas les émissions hôtelières, la disponibilité, les prix, le forçage radiatif, l’infrastructure, les effets rebond ou un « score écologique » composite. La qualité d’un résultat dépend de la distance et du facteur fournis; aucune valeur manquante n’est imputée et aucun fallback de données réelles vers une fixture n’est autorisé.
+- Catalogue ADEME : <https://data.ademe.fr/datasets/base-carboner>
+- Export officiel : <https://data.ademe.fr/data-fair/api/v1/datasets/base-carboner/full>
+- Métadonnées/API : <https://data.ademe.fr/data-fair/api/v1/datasets/base-carboner>
+- Version : V23.6 ; accès : 2026-09-24 ; licence : Licence Ouverte / Open Licence (Etalab)
+- Snapshot : 10 761 452 octets ; SHA-256 `01472bc24743c0265b649407508dfce896f15a5c11c0f612f6b47a5625b02653`
 
-Toute intégration future de facteurs réels devra documenter l’éditeur exact, l’URL, la licence, la version, la date d’accès, la validité, la géographie, le périmètre et les limites avant d’utiliser le statut `verified`.
+La Base Carbone est publiée irrégulièrement. EcoTrip ne met jamais à jour en place : télécharger une nouvelle publication hors application, vérifier sa documentation, choisir une nouvelle version et un checksum, importer additivement avec sa date effective, valider en base, puis seulement modifier la configuration. Ne jamais supprimer l’ancienne version.
+
+La méthode ne constitue ni une ACV complète ni un conseil de réservation. Elle ne couvre pas prix, disponibilité, hébergement, forçage radiatif, effets rebond ni score global. L’incertitude ADEME et la représentativité moyenne doivent rester prises en compte.

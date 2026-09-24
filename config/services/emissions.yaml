@@ -1,0 +1,11 @@
+parameters:
+  env(ECOTRIP_EMISSION_FACTOR_PROVIDER): 'demo'
+
+services:
+  App\Environmental\EmissionFactorRepositoryFactory:
+    autowire: true
+    arguments:
+      $provider: '%env(ECOTRIP_EMISSION_FACTOR_PROVIDER)%'
+
+  App\Environmental\EmissionFactorRepository:
+    factory: ['@App\Environmental\EmissionFactorRepositoryFactory', 'create']
