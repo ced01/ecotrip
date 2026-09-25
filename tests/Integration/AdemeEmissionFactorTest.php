@@ -60,8 +60,9 @@ final class AdemeEmissionFactorTest extends KernelTestCase
         self::assertSame(1, (int) $this->db->fetchOne('SELECT count(*) FROM emission_factor_import'));
         self::assertSame(1, (int) $this->db->fetchOne('SELECT count(*) FROM emission_factor'));
 
-        $repository = new PostgresEmissionFactorRepository($this->db, $sha);
-        self::assertTrue($repository->isInitialized());
+        $repository = new PostgresEmissionFactorRepository($this->db, AdemePublicationRegistry::arbitraryChecksumForRepositoryTest($sha));
+        self::assertTrue($repository->hasCompleteQualifiedStructure());
+        self::assertFalse($repository->isInitialized(), 'A derived fixture checksum must never activate production.');
         $factors = $repository->findCandidates('public_transport', 'bus_urban', 'FR-TM', new \DateTimeImmutable('2027-01-01'));
         self::assertCount(1, $factors);
         self::assertSame(0.151, $factors[0]['value']);
@@ -171,21 +172,68 @@ final class AdemeEmissionFactorTest extends KernelTestCase
     public function testProviderFactorySelectsDemoAndOnlyIntegrityCheckedAdeme(): void
     {
         $demo = new DemoEmissionFactorRepository();
-        $sha = $this->fixtureSha();
-        $ademe = new PostgresEmissionFactorRepository($this->db, $sha);
+        $ademe = new PostgresEmissionFactorRepository($this->db);
         self::assertSame($demo, (new EmissionFactorRepositoryFactory($demo, $ademe, 'demo'))->create());
-        $this->importer($sha)->import($this->fixture(), 'V23.6', $sha);
+        $this->insertSyntheticPublication(AdemeEmissionFactorImporter::SOURCE_VERSION, AdemeEmissionFactorImporter::EFFECTIVE_FROM, [
+            'checksum_sha256' => AdemeEmissionFactorImporter::OFFICIAL_SHA256,
+        ]);
         self::assertSame($ademe, (new EmissionFactorRepositoryFactory($demo, $ademe, 'ademe'))->create());
+    }
+
+    public function testOnlyTheParameterlessOfficialRegistryCanBeProductionEligible(): void
+    {
+        $constructor = (new \ReflectionClass(AdemePublicationRegistry::class))->getConstructor();
+        self::assertNotNull($constructor);
+        self::assertFalse($constructor->isPublic());
+
+        $official = AdemePublicationRegistry::official();
+        self::assertTrue($official->isProductionEligible());
+        self::assertSame([[
+            'sourceId' => AdemeEmissionFactorImporter::SOURCE_ID,
+            'sourceVersion' => AdemeEmissionFactorImporter::SOURCE_VERSION,
+            'checksum' => AdemeEmissionFactorImporter::OFFICIAL_SHA256,
+            'effectiveFrom' => AdemeEmissionFactorImporter::EFFECTIVE_FROM,
+        ]], $official->publications());
+
+        self::assertFalse(AdemePublicationRegistry::arbitraryChecksumForRepositoryTest($this->fixtureSha())->isProductionEligible());
+        self::assertFalse(AdemePublicationRegistry::syntheticForRepositoryTest([
+            ['sourceVersion' => 'SYNTHETIC-TEST', 'checksum' => str_repeat('a', 64), 'effectiveFrom' => '2025-01-01'],
+        ])->isProductionEligible());
+        self::assertFalse(method_exists(AdemePublicationRegistry::class, 'officialWithChecksum'));
+    }
+
+    public function testSyntheticAndArbitraryRegistriesCanReadStructureButNeverActivateFactory(): void
+    {
+        $fixtureSha = $this->fixtureSha();
+        $this->importer($fixtureSha)->import($this->fixture(), 'V23.6', $fixtureSha);
+        $arbitrary = new PostgresEmissionFactorRepository(
+            $this->db,
+            AdemePublicationRegistry::arbitraryChecksumForRepositoryTest($fixtureSha),
+        );
+        self::assertCount(1, $arbitrary->findCandidates('public_transport', 'bus_urban', 'FR-TM', new \DateTimeImmutable('2027-01-01')));
+        self::assertFalse($arbitrary->isInitialized());
+        $this->assertProviderRejected($arbitrary);
+
+        $this->db->executeStatement('TRUNCATE emission_factor, emission_factor_import CASCADE');
+        $syntheticRegistry = AdemePublicationRegistry::syntheticForRepositoryTest([
+            ['sourceVersion' => 'SYNTHETIC-TEST', 'checksum' => str_repeat('a', 64), 'effectiveFrom' => '2025-01-01'],
+        ]);
+        $this->insertSyntheticPublication('SYNTHETIC-TEST', '2025-01-01', ['checksum_sha256' => str_repeat('a', 64)]);
+        $synthetic = new PostgresEmissionFactorRepository($this->db, $syntheticRegistry);
+        self::assertCount(1, $synthetic->findCandidates('public_transport', 'bus_urban', 'FR-TM', new \DateTimeImmutable('2027-01-01')));
+        self::assertFalse($synthetic->isInitialized());
+        $this->assertProviderRejected($synthetic);
     }
 
     public function testAdemeAbsentOrEveryCorruptInvariantFailsWithoutDemoFallback(): void
     {
         $sha = $this->fixtureSha();
-        $repository = new PostgresEmissionFactorRepository($this->db, $sha);
+        $repository = new PostgresEmissionFactorRepository($this->db, AdemePublicationRegistry::arbitraryChecksumForRepositoryTest($sha));
         self::assertFalse($repository->isInitialized());
         $this->assertProviderRejected($repository);
 
         $this->importer($sha)->import($this->fixture(), 'V23.6', $sha);
+        self::assertTrue($repository->hasCompleteQualifiedStructure());
         $this->db->executeStatement(<<<'SQL'
 INSERT INTO data_source (id,publisher,url,license,accessed_at,version,reuse_notes,data_status)
 VALUES ('unqualified-source','Synthetic','https://invalid.example','none','2026-09-24','TEST','Test-only FK target.','demo')
@@ -195,6 +243,7 @@ SQL);
         self::assertIsArray($factor);
         self::assertIsArray($import);
         $corruptions = [
+            ['emission_factor', 'id', 'corrupt-deterministic-identity'],
             ['emission_factor', 'value', '0.152'],
             ['emission_factor', 'source_value', '0,152'],
             ['emission_factor', 'valid_from', '2026-07-01'],
@@ -237,18 +286,38 @@ SQL);
             $original = $table === 'emission_factor' ? $factor[$field] : $import[$field];
             $this->db->update($table, [$field => $badValue], ['id' => $id]);
             $label = $table.'.'.$field;
-            self::assertFalse($repository->isInitialized(), $label);
+            self::assertFalse($repository->hasCompleteQualifiedStructure(), $label);
+            self::assertSame([], $repository->findCandidates('public_transport', 'bus_urban', 'FR-TM', new \DateTimeImmutable('2027-01-01')), $label);
             $this->assertProviderRejected($repository);
-            $this->db->update($table, [$field => $original], ['id' => $id]);
-            self::assertTrue($repository->isInitialized(), 'restored '.$label);
+            $persistedId = $table === 'emission_factor' && $field === 'id' ? $badValue : $id;
+            $this->db->update($table, [$field => $original], ['id' => $persistedId]);
+            self::assertTrue($repository->hasCompleteQualifiedStructure(), 'restored '.$label);
         }
+    }
+
+    public function testCorruptDeterministicIdentityMakesIdempotentReimportFailClosed(): void
+    {
+        $sha = $this->fixtureSha();
+        $importer = $this->importer($sha);
+        $importer->import($this->fixture(), 'V23.6', $sha);
+        $expectedId = (string) $this->db->fetchOne('SELECT id FROM emission_factor');
+        $this->db->update('emission_factor', ['id' => 'corrupt-deterministic-identity'], ['id' => $expectedId]);
+
+        try {
+            $importer->import($this->fixture(), 'V23.6', $sha);
+            self::fail('A corrupt persisted identity must not be reported as an idempotent successful import.');
+        } catch (\InvalidArgumentException $error) {
+            self::assertStringContainsString('corrupt', strtolower($error->getMessage()));
+        }
+        self::assertSame('corrupt-deterministic-identity', $this->db->fetchOne('SELECT id FROM emission_factor'));
+        self::assertSame(1, (int) $this->db->fetchOne('SELECT count(*) FROM emission_factor'));
     }
 
     public function testUnqualifiedPublicationsAreNeitherSelectedNorAllowedToMaskTheQualifiedCandidate(): void
     {
         $sha = $this->fixtureSha();
         $this->importer($sha)->import($this->fixture(), 'V23.6', $sha);
-        $repository = new PostgresEmissionFactorRepository($this->db, $sha);
+        $repository = new PostgresEmissionFactorRepository($this->db, AdemePublicationRegistry::arbitraryChecksumForRepositoryTest($sha));
 
         foreach ([
             'other-source' => ['source_id' => 'unqualified-source'],
@@ -284,11 +353,13 @@ SQL);
         self::assertSame(2, (int) $this->db->fetchOne('SELECT count(*) FROM emission_factor_import'));
         self::assertSame(2, (int) $this->db->fetchOne('SELECT count(*) FROM emission_factor'));
 
-        $production = new PostgresEmissionFactorRepository($this->db, $this->fixtureSha());
+        $production = new PostgresEmissionFactorRepository($this->db);
         self::assertFalse($production->isInitialized(), 'Synthetic publications must never activate the production provider.');
         self::assertSame([], $production->findCandidates('public_transport', 'bus_urban', 'FR-TM', new \DateTimeImmutable('2027-01-01')));
 
-        $structuralRepository = new PostgresEmissionFactorRepository($this->db, null, $registry);
+        $structuralRepository = new PostgresEmissionFactorRepository($this->db, $registry);
+        self::assertTrue($structuralRepository->hasCompleteQualifiedStructure());
+        self::assertFalse($structuralRepository->isInitialized(), 'A structurally valid synthetic registry is never production-eligible.');
         self::assertSame('SYNTHETIC-OLD', $structuralRepository->findCandidates('public_transport', 'bus_urban', 'FR-TM', new \DateTimeImmutable('2025-06-01'))[0]['version']);
         self::assertSame('SYNTHETIC-NEW', $structuralRepository->findCandidates('public_transport', 'bus_urban', 'FR-TM', new \DateTimeImmutable('2026-06-01'))[0]['version']);
         self::assertSame(2, (int) $this->db->fetchOne('SELECT count(*) FROM emission_factor'), 'Selecting a newer publication must not mutate history.');
@@ -296,7 +367,7 @@ SQL);
 
     public function testInitializationDoesNotMaskDatabaseFailure(): void
     {
-        $repository = new PostgresEmissionFactorRepository($this->db, $this->fixtureSha());
+        $repository = new PostgresEmissionFactorRepository($this->db);
         $this->db->executeStatement('DROP TABLE emission_factor_import CASCADE');
         $this->expectException(DbalException::class);
         $repository->isInitialized();
@@ -340,7 +411,7 @@ SQL);
     {
         $sha = $this->fixtureSha();
         $this->importer($sha)->import($this->fixture(), 'V23.6', $sha);
-        $repository = new PostgresEmissionFactorRepository($this->db, $sha);
+        $repository = new PostgresEmissionFactorRepository($this->db, AdemePublicationRegistry::arbitraryChecksumForRepositoryTest($sha));
         self::assertSame([], $repository->findCandidates('public_transport', 'bus_urban', 'FR-TM', new \DateTimeImmutable('2026-06-29')));
         $this->db->executeStatement("UPDATE emission_factor SET selection_status='archived'");
         self::assertSame([], $repository->findCandidates('public_transport', 'bus_urban', 'FR-TM', new \DateTimeImmutable('2027-01-01')));
@@ -411,7 +482,7 @@ SQL, ['source' => $sourceId, 'version' => $sourceVersion, 'checksum' => $checksu
         if ($factor === false) {
             $factor = $this->qualifiedFactorRow();
         }
-        $factor['id'] = 'synthetic-'.substr(hash('sha256', $sourceId."\0".$sourceVersion), 0, 32);
+        $factor['id'] = PostgresEmissionFactorRepository::deterministicFactorId($sourceId, $externalId, $sourceVersion);
         $factor['import_id'] = $importId;
         $factor['source_id'] = $sourceId;
         $factor['version'] = $sourceVersion;

@@ -18,6 +18,7 @@ services:
       - '../src/Place/PlaceProviderFactory.php'
       - '../src/Journey/JourneyProviderFactory.php'
       - '../src/Environmental/EmissionFactorRepositoryFactory.php'
+      - '../src/Environmental/AdemePublicationRegistry.php'
 
   App\Provider\DemoAccommodationProvider: ~
   App\Provider\AccommodationProvider: '@App\Provider\DemoAccommodationProvider'

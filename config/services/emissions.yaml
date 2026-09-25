@@ -2,6 +2,9 @@ parameters:
   env(ECOTRIP_EMISSION_FACTOR_PROVIDER): 'demo'
 
 services:
+  App\Environmental\AdemePublicationRegistry:
+    factory: ['App\Environmental\AdemePublicationRegistry', 'official']
+
   App\Environmental\EmissionFactorRepositoryFactory:
     autowire: true
     arguments:

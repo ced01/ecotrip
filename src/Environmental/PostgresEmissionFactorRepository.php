@@ -12,19 +12,19 @@ final readonly class PostgresEmissionFactorRepository implements EmissionFactorR
 
     public function __construct(
         private Connection $connection,
-        ?string $qualifiedChecksum = null,
         ?AdemePublicationRegistry $registry = null,
     ) {
-        if ($qualifiedChecksum !== null && $registry !== null) {
-            throw new \InvalidArgumentException('Use either a qualified checksum or a publication registry, not both.');
-        }
-        $this->registry = $qualifiedChecksum !== null
-            ? AdemePublicationRegistry::officialWithChecksum($qualifiedChecksum)
-            : ($registry ?? new AdemePublicationRegistry());
+        $this->registry = $registry ?? AdemePublicationRegistry::official();
     }
 
     /** Database failures deliberately propagate; false means absent/corrupt, never unavailable storage. */
     public function isInitialized(): bool
+    {
+        return $this->registry->isProductionEligible() && $this->hasCompleteQualifiedStructure();
+    }
+
+    /** Structural seam used by the importer and repository integration tests; not an activation decision. */
+    public function hasCompleteQualifiedStructure(): bool
     {
         [$cte, $params] = $this->qualificationCte();
         $rows = $this->connection->fetchAllAssociative($cte.<<<'SQL'
@@ -114,14 +114,15 @@ SQL, $params);
             'mapping_notes' => AdemeEmissionFactorImporter::MAPPING_NOTES,
         ];
         foreach ($this->registry->publications() as $index => $publication) {
-            $values[] = "(:source{$index}, :version{$index}, :checksum{$index}, CAST(:effective{$index} AS DATE))";
+            $values[] = "(:source{$index}, :version{$index}, :checksum{$index}, CAST(:effective{$index} AS DATE), :factor_id{$index})";
             $params["source{$index}"] = $publication['sourceId'];
             $params["version{$index}"] = $publication['sourceVersion'];
             $params["checksum{$index}"] = $publication['checksum'];
             $params["effective{$index}"] = $publication['effectiveFrom'];
+            $params["factor_id{$index}"] = self::deterministicFactorId($publication['sourceId'], '28000', $publication['sourceVersion']);
         }
 
-        $cte = 'WITH qualified_publication(source_id, source_version, checksum_sha256, effective_from) AS (VALUES '.implode(', ', $values).'), '.<<<'SQL'
+        $cte = 'WITH qualified_publication(source_id, source_version, checksum_sha256, effective_from, expected_factor_id) AS (VALUES '.implode(', ', $values).'), '.<<<'SQL'
 qualified_import AS (
     SELECT i.*
     FROM qualified_publication qp
@@ -142,8 +143,11 @@ qualified_import AS (
 qualified_factor AS (
     SELECT f.*
     FROM qualified_import i
+    JOIN qualified_publication qp
+      ON qp.source_id=i.source_id AND qp.source_version=i.source_version
     JOIN emission_factor f
       ON f.import_id=i.id
+     AND f.id=qp.expected_factor_id
      AND f.source_id=i.source_id
      AND f.version=i.source_version
      AND f.external_id=:external_id
@@ -176,5 +180,10 @@ qualified_factor AS (
 SQL;
 
         return [$cte, $params];
+    }
+
+    public static function deterministicFactorId(string $sourceId, string $externalId, string $sourceVersion): string
+    {
+        return 'ademe-'.$externalId.'-'.substr(hash('sha256', $sourceId."\0".$externalId."\0".$sourceVersion), 0, 32);
     }
 }

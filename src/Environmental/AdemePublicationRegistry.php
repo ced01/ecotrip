@@ -4,43 +4,48 @@ declare(strict_types=1);
 
 namespace App\Environmental;
 
-/**
- * Explicit qualification boundary for publications selectable by the repository.
- *
- * The runtime registry contains only the reviewed ADEME V23.6 publication. The
- * synthetic factory exists solely to exercise versioned-history SQL without
- * claiming that another real ADEME publication has been qualified.
- */
+/** Immutable qualification boundary between official runtime data and test-only structures. */
 final readonly class AdemePublicationRegistry
 {
     /** @var list<array{sourceId: string, sourceVersion: string, checksum: string, effectiveFrom: string}> */
     private array $publications;
 
     /**
-     * @param list<array{sourceId: string, sourceVersion: string, checksum: string, effectiveFrom: string}>|null $publications
+     * Deliberately private: only official() can create a production-eligible registry.
+     *
+     * @param list<array{sourceId: string, sourceVersion: string, checksum: string, effectiveFrom: string}> $publications
      */
-    public function __construct(?array $publications = null)
+    private function __construct(array $publications, private bool $productionEligible)
     {
-        $this->publications = $publications ?? [[
+        $this->publications = $publications;
+        $this->validate();
+    }
+
+    /** The sole production registry; every value is pinned in reviewed source code. */
+    public static function official(): self
+    {
+        return new self([[
             'sourceId' => AdemeEmissionFactorImporter::SOURCE_ID,
             'sourceVersion' => AdemeEmissionFactorImporter::SOURCE_VERSION,
             'checksum' => AdemeEmissionFactorImporter::OFFICIAL_SHA256,
             'effectiveFrom' => AdemeEmissionFactorImporter::EFFECTIVE_FROM,
-        ]];
-        $this->validate();
+        ]], true);
     }
 
-    public static function officialWithChecksum(string $checksum): self
+    /** Test-only seam for a derived fixture using the otherwise exact V23.6 structure. */
+    public static function arbitraryChecksumForRepositoryTest(string $checksum): self
     {
         return new self([[
             'sourceId' => AdemeEmissionFactorImporter::SOURCE_ID,
             'sourceVersion' => AdemeEmissionFactorImporter::SOURCE_VERSION,
             'checksum' => $checksum,
             'effectiveFrom' => AdemeEmissionFactorImporter::EFFECTIVE_FROM,
-        ]]);
+        ]], false);
     }
 
     /**
+     * Test-only seam for versioned-history SQL. These publications can never activate the runtime provider.
+     *
      * @param list<array{sourceVersion: string, checksum: string, effectiveFrom: string}> $publications
      */
     public static function syntheticForRepositoryTest(array $publications): self
@@ -58,7 +63,12 @@ final readonly class AdemePublicationRegistry
             ];
         }
 
-        return new self($qualified);
+        return new self($qualified, false);
+    }
+
+    public function isProductionEligible(): bool
+    {
+        return $this->productionEligible;
     }
 
     /** @return list<array{sourceId: string, sourceVersion: string, checksum: string, effectiveFrom: string}> */
@@ -87,6 +97,21 @@ final readonly class AdemePublicationRegistry
             $versions[$publication['sourceVersion']] = true;
             $effectiveDates[$publication['effectiveFrom']] = true;
         }
+
+        if ($this->productionEligible && $this->publications !== self::officialValues()) {
+            throw new \LogicException('Only the pinned official ADEME publication can be production-eligible.');
+        }
+    }
+
+    /** @return list<array{sourceId: string, sourceVersion: string, checksum: string, effectiveFrom: string}> */
+    private static function officialValues(): array
+    {
+        return [[
+            'sourceId' => AdemeEmissionFactorImporter::SOURCE_ID,
+            'sourceVersion' => AdemeEmissionFactorImporter::SOURCE_VERSION,
+            'checksum' => AdemeEmissionFactorImporter::OFFICIAL_SHA256,
+            'effectiveFrom' => AdemeEmissionFactorImporter::EFFECTIVE_FROM,
+        ]];
     }
 
     private function isExactDate(string $value): bool

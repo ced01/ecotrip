@@ -77,6 +77,12 @@ final readonly class AdemeEmissionFactorImporter
                 if ((int) $existing['factor_count'] !== count($rows)) {
                     throw new \InvalidArgumentException('Existing ADEME import is corrupt: factor count differs.');
                 }
+                $registry = hash_equals(self::OFFICIAL_SHA256, $expectedSha256)
+                    ? AdemePublicationRegistry::official()
+                    : AdemePublicationRegistry::arbitraryChecksumForRepositoryTest($expectedSha256);
+                if (!(new PostgresEmissionFactorRepository($db, $registry))->hasCompleteQualifiedStructure()) {
+                    throw new \InvalidArgumentException('Existing ADEME import is corrupt: persisted publication integrity differs.');
+                }
                 return new EmissionFactorImportResult((int) $existing['id'], $sourceVersion, $expectedSha256, (int) $existing['factor_count'], true);
             }
             $db->executeStatement(<<<'SQL'
@@ -91,7 +97,7 @@ VALUES (:source,:version,:checksum,:accessed,:effective,:count,'complete','ADEME
 RETURNING id
 SQL, ['source'=>self::SOURCE_ID,'version'=>$sourceVersion,'checksum'=>$expectedSha256,'accessed'=>self::ACCESSED_AT,'effective'=>$effective,'count'=>count($rows),'url'=>self::CATALOG_URL,'license'=>self::LICENSE,'mapping'=>self::MAPPING_METHOD]);
             foreach ($rows as $row) {
-                $id = 'ademe-'.$row['externalId'].'-'.substr(hash('sha256', self::SOURCE_ID."\0".$row['externalId']."\0".$sourceVersion), 0, 32);
+                $id = PostgresEmissionFactorRepository::deterministicFactorId(self::SOURCE_ID, (string) $row['externalId'], $sourceVersion);
                 $db->insert('emission_factor', [
                     'id'=>$id, 'value'=>$row['value'], 'unit'=>'kgCO2e/passenger-km', 'mode'=>'public_transport', 'subtype'=>'bus_urban',
                     'geography'=>'FR-TM', 'valid_from'=>$effective, 'valid_until'=>null, 'scope'=>'life_cycle', 'occupancy'=>null,
