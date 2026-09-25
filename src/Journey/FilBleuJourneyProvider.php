@@ -44,7 +44,7 @@ final readonly class FilBleuJourneyProvider implements JourneyProvider
             $legId='filbleu-leg-'.$token;
             $duration=(int)ceil(($row['arrivalSeconds']-$row['departureSeconds'])/60);
             $itineraries[]=['id'=>'filbleu-trip-'.$token,'direction'=>'outbound','requestedDate'=>$query->date->format('Y-m-d'),'dataStatus'=>'real','legs'=>[[
-                'id'=>$legId,'mode'=>'public_transport','subtype'=>$row['routeName']!==''?$row['routeName']:null,'originId'=>$query->originId,'destinationId'=>$query->destinationId,'durationMinutes'=>$duration,'waitingMinutes'=>0,
+                'id'=>$legId,'mode'=>'public_transport','subtype'=>'bus_urban','originId'=>$query->originId,'destinationId'=>$query->destinationId,'durationMinutes'=>$duration,'waitingMinutes'=>0,
                 'distance'=>['km'=>null,'method'=>'unknown','provenance'=>$provenance],
                 'schedule'=>['departureAt'=>$departure->format(DATE_ATOM),'arrivalAt'=>$arrival->format(DATE_ATOM),'provenance'=>$provenance],'provenance'=>$provenance,
             ]],'durationMinutes'=>$duration,'transfers'=>0,'emissions'=>[

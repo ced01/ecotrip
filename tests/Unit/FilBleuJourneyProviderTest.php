@@ -61,6 +61,7 @@ final class FilBleuJourneyProviderTest extends TestCase
         self::assertSame(5, $itinerary['durationMinutes']);
         self::assertNull($itinerary['legs'][0]['distance']['km']);
         self::assertSame('unknown', $itinerary['legs'][0]['distance']['method']);
+        self::assertSame('bus_urban', $itinerary['legs'][0]['subtype']);
         self::assertSame('unavailable', $itinerary['emissions']['status']);
         self::assertNull($itinerary['emissions']['kgCO2ePerTraveler']);
         self::assertFalse($itinerary['emissions']['comparable']);

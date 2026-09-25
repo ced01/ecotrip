@@ -28,7 +28,7 @@ final class ImportAdemeEmissionFactorsCommand extends Command
     {
         try {
             $effective = $input->getOption('effective-from');
-            $result = $this->importer->import((string)$input->getOption('file'), (string)$input->getOption('source-version'), (string)$input->getOption('sha256'), $effective === null ? null : new \DateTimeImmutable((string)$effective));
+            $result = $this->importer->import((string)$input->getOption('file'), (string)$input->getOption('source-version'), (string)$input->getOption('sha256'), $effective === null ? null : (string) $effective);
         } catch (\Throwable $error) {
             $output->writeln('<error>Import refused: '.htmlspecialchars($error->getMessage(), ENT_QUOTES).'</error>');
             return Command::INVALID;

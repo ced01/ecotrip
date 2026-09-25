@@ -120,7 +120,7 @@ docker compose --env-file .env.local --profile tools run --rm dev php bin/consol
   --sha256=01472bc24743c0265b649407508dfce896f15a5c11c0f612f6b47a5625b02653
 ```
 
-Le fichier doit être monté/lisible dans le conteneur (placer temporairement une copie hors Git sous le projet si nécessaire). La commande ne télécharge rien, valide l’ensemble avant insertion et rollback toute erreur. Une répétition identique est sans effet. Pour une publication suivante, ne jamais modifier/supprimer V23.6 : qualifier l’identifiant et le mapping, importer avec un nouveau `--source-version`, checksum et `--effective-from=AAAA-MM-JJ`, puis contrôler `emission_factor_import` et `emission_factor`.
+Le fichier doit être monté/lisible dans le conteneur (placer temporairement une copie hors Git sous le projet si nécessaire). La commande ne télécharge rien, valide l’ensemble avant insertion et rollback toute erreur. Une répétition identique est sans effet. Le registre courant accepte strictement V23.6, le checksum officiel et la date effective qualifiée `2026-06-30`; `--effective-from` est strictement `YYYY-MM-DD` mais ne peut pas contourner ce pin. Pour une publication suivante, ne jamais modifier/supprimer V23.6 : faire d’abord revoir et livrer son nouveau mapping, checksum et sa date dans le registre qualifié, puis importer additivement et contrôler `emission_factor_import` et `emission_factor`.
 
 Après migration et import complet seulement, définir `ECOTRIP_EMISSION_FACTOR_PROVIDER=ademe` dans `.env.local` et redémarrer. Une valeur inconnue ou un import absent provoque une erreur explicite; aucun fallback `demo` n’existe. Le défaut reste `demo`.
 

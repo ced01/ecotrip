@@ -6,9 +6,11 @@ namespace App\Tests\Integration;
 
 use App\Demo\DemoEmissionFactorRepository;
 use App\Environmental\AdemeEmissionFactorImporter;
+use App\Environmental\EmissionEstimator;
 use App\Environmental\EmissionFactorRepositoryFactory;
 use App\Environmental\PostgresEmissionFactorRepository;
 use Doctrine\DBAL\Connection;
+use Doctrine\DBAL\Exception as DbalException;
 use Doctrine\DBAL\Schema\Schema;
 use Psr\Log\NullLogger;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -46,116 +48,219 @@ final class AdemeEmissionFactorTest extends KernelTestCase
         parent::tearDown();
     }
 
-    public function testPinnedImportIsIdempotentAndExposesCompleteProvenance(): void
+    public function testPinnedImportIsIdempotentAndExposesQualifiedLifeCycleProvenance(): void
     {
-        $file = $this->fixture();
-        $sha = hash_file('sha256', $file);
-        $importer = new AdemeEmissionFactorImporter($this->db);
-
-        $first = $importer->import($file, 'V23.6', $sha);
-        $second = $importer->import($file, 'V23.6', $sha);
+        $sha = $this->fixtureSha();
+        $importer = $this->importer($sha);
+        $first = $importer->import($this->fixture(), 'V23.6', $sha);
+        $second = $importer->import($this->fixture(), 'V23.6', $sha);
 
         self::assertSame($first->importId, $second->importId);
         self::assertSame(1, (int) $this->db->fetchOne('SELECT count(*) FROM emission_factor_import'));
         self::assertSame(1, (int) $this->db->fetchOne('SELECT count(*) FROM emission_factor'));
 
-        $factors = (new PostgresEmissionFactorRepository($this->db))->findCandidates('public_transport', null, 'FR-TM', new \DateTimeImmutable('2027-01-01'));
+        $repository = new PostgresEmissionFactorRepository($this->db, $sha);
+        self::assertTrue($repository->isInitialized());
+        $factors = $repository->findCandidates('public_transport', 'bus_urban', 'FR-TM', new \DateTimeImmutable('2027-01-01'));
         self::assertCount(1, $factors);
         self::assertSame(0.151, $factors[0]['value']);
         self::assertSame('0,151', $factors[0]['sourceValue']);
         self::assertSame('kgCO2e/passager.km', $factors[0]['sourceUnit']);
         self::assertSame('28000', $factors[0]['externalId']);
         self::assertSame('V23.6', $factors[0]['version']);
+        self::assertSame('avr-22', $factors[0]['sourcePeriod']);
         self::assertSame($sha, $factors[0]['checksumSha256']);
         self::assertSame('UTP - Enquête TCU 2017', $factors[0]['upstreamSource']);
         self::assertSame('life_cycle', $factors[0]['scope']);
-        self::assertSame('ademe-v23.6-explicit-map-v1', $factors[0]['mappingMethod']);
-        self::assertStringContainsString('301 339 habitants', $factors[0]['mappingNotes']);
-        self::assertStringContainsString('https://www.insee.fr/fr/statistiques/1405599?geo=EPCI-243700754', $factors[0]['mappingNotes']);
+        self::assertSame('ademe-v23.6-explicit-map-v2', $factors[0]['mappingMethod']);
+        self::assertStringContainsString('Carburant (amont/combustion)=0,129', $factors[0]['mappingNotes']);
+        self::assertStringContainsString('Fabrication=0,0225', $factors[0]['mappingNotes']);
+        self::assertArrayNotHasKey('selectionStatus', $factors[0]);
+        $contract = json_decode(file_get_contents(dirname(__DIR__, 2).'/docs/openapi.yaml'), true, 512, JSON_THROW_ON_ERROR);
+        $apiKeys = array_keys($factors[0]);
+        $contractKeys = array_keys($contract['components']['schemas']['Factor']['properties']);
+        sort($apiKeys);
+        sort($contractKeys);
+        self::assertSame($contractKeys, $apiKeys, 'The real ADEME Factor payload must exactly match OpenAPI (additionalProperties=false).');
+        $requiredKeys = $contract['components']['schemas']['Factor']['required'];
+        sort($requiredKeys);
+        self::assertSame($contractKeys, $requiredKeys);
+        $this->db->executeStatement("UPDATE data_source SET publisher='mutated', url='https://invalid.example', license='mutated', version='mutated'");
+        $authoritative = $repository->findCandidates('public_transport', 'bus_urban', 'FR-TM', new \DateTimeImmutable('2027-01-01'))[0];
+        self::assertSame(AdemeEmissionFactorImporter::CATALOG_URL, $authoritative['sourceUrl']);
+        self::assertSame(AdemeEmissionFactorImporter::LICENSE, $authoritative['sourceLicense']);
+        self::assertSame('V23.6', $authoritative['version']);
+        self::assertSame([], $repository->findCandidates('public_transport', null, 'FR-TM', new \DateTimeImmutable('2027-01-01')));
+        self::assertSame([], $repository->findCandidates('train', 'bus_urban', 'FR-TM', new \DateTimeImmutable('2027-01-01')));
     }
 
-    public function testProviderFactorySelectsDemoAndAdemeExplicitly(): void
+    public function testOnlyOfficialV236MappingAndQualifiedChecksumsAreAccepted(): void
     {
-        $demo = new DemoEmissionFactorRepository();
-        $ademe = new PostgresEmissionFactorRepository($this->db);
-
-        self::assertSame($demo, (new EmissionFactorRepositoryFactory($demo, $ademe, 'demo'))->create());
-
-        $file = $this->fixture();
-        (new AdemeEmissionFactorImporter($this->db))->import($file, 'V23.6', hash_file('sha256', $file));
-        self::assertSame($ademe, (new EmissionFactorRepositoryFactory($demo, $ademe, 'ademe'))->create());
-    }
-
-    public function testUnknownProviderIsRejected(): void
-    {
-        $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage('expected demo or ademe');
-
-        (new EmissionFactorRepositoryFactory(
-            new DemoEmissionFactorRepository(),
-            new PostgresEmissionFactorRepository($this->db),
-            'other',
-        ))->create();
-    }
-
-    public function testAdemeWithoutCompleteImportFailsWithoutDemoFallback(): void
-    {
-        $this->expectException(\RuntimeException::class);
-        $this->expectExceptionMessage('no demo fallback');
-
-        (new EmissionFactorRepositoryFactory(
-            new DemoEmissionFactorRepository(),
-            new PostgresEmissionFactorRepository($this->db),
-            'ademe',
-        ))->create();
-    }
-
-    public function testNewPublicationPreservesHistoryAndDateSelectionIsUnambiguous(): void
-    {
-        $file = $this->fixture();
-        $importer = new AdemeEmissionFactorImporter($this->db);
-        $importer->import($file, 'V23.6', hash_file('sha256', $file));
-        $next = $this->temporary(str_replace('0,151', '0,152', file_get_contents($file)));
-        $importer->import($next, 'V23.7', hash_file('sha256', $next), new \DateTimeImmutable('2027-06-01'));
-
-        self::assertSame(2, (int) $this->db->fetchOne('SELECT count(*) FROM emission_factor'));
-        $repository = new PostgresEmissionFactorRepository($this->db);
-        self::assertSame(0.151, $repository->findCandidates('public_transport', null, 'FR-TM', new \DateTimeImmutable('2027-01-01'))[0]['value']);
-        self::assertSame(0.152, $repository->findCandidates('public_transport', null, 'FR-TM', new \DateTimeImmutable('2027-06-01'))[0]['value']);
-    }
-
-    public function testChecksumAndMissingExpectedIdentifierFailBeforeWriting(): void
-    {
-        $importer = new AdemeEmissionFactorImporter($this->db);
-        try {
-            $importer->import($this->fixture(), 'V23.6', str_repeat('0', 64));
-            self::fail('Checksum mismatch must fail.');
-        } catch (\InvalidArgumentException $e) {
-            self::assertStringContainsString('checksum', strtolower($e->getMessage()));
+        $sha = $this->fixtureSha();
+        foreach (['V23.7', 'V24', '23.6', ''] as $version) {
+            try {
+                $this->importer($sha)->import($this->fixture(), $version, $sha);
+                self::fail($version.' must be rejected.');
+            } catch (\InvalidArgumentException $error) {
+                self::assertStringContainsString('version', strtolower($error->getMessage()));
+            }
         }
-        self::assertSame(0, (int) $this->db->fetchOne('SELECT count(*) FROM emission_factor_import'));
-
-        $missing = $this->temporary(str_replace(';28000;', ';99999;', file_get_contents($this->fixture())));
         $this->expectException(\InvalidArgumentException::class);
         try {
-            $importer->import($missing, 'V23.6', hash_file('sha256', $missing));
+            (new AdemeEmissionFactorImporter($this->db))->import($this->fixture(), 'V23.6', $sha);
         } finally {
             self::assertSame(0, (int) $this->db->fetchOne('SELECT count(*) FROM emission_factor_import'));
         }
     }
 
-    public function testContradictoryDuplicateRollsBackAtomically(): void
+    public function testEffectiveDateIsStrictAndPinnedToQualifiedMapping(): void
     {
-        $content = file_get_contents($this->fixture());
-        $lines = explode("\n", rtrim($content, "\r\n"));
-        $duplicate = $lines[1];
-        $bad = $this->temporary($content.str_replace('0,151', '0,999', $duplicate)."\n");
-        $this->expectException(\InvalidArgumentException::class);
+        $sha = $this->fixtureSha();
+        foreach (['tomorrow', '2026-06', '2026-6-30', '2026-02-30', '2026-07-01'] as $date) {
+            try {
+                $this->importer($sha)->import($this->fixture(), 'V23.6', $sha, $date);
+                self::fail($date.' must be rejected.');
+            } catch (\InvalidArgumentException) {
+                self::assertSame(0, (int) $this->db->fetchOne('SELECT count(*) FROM emission_factor_import'));
+            }
+        }
+    }
+
+    public function testPosteProofMustBeCompleteExactAndNonContradictory(): void
+    {
+        $original = file_get_contents($this->fixture());
+        $lines = explode("\n", rtrim($original, "\r\n"));
+        $cases = [
+            'missing' => implode("\n", [$lines[0], $lines[1], $lines[2]])."\n",
+            'modified' => $this->sourceReplace($original, '0,0225', '0,9999'),
+            'contradictory duplicate' => $original.$this->sourceReplace($lines[2], '0,129', '0,999')."\n",
+        ];
+        foreach ($cases as $case => $content) {
+            $file = $this->temporary($content);
+            $sha = hash_file('sha256', $file);
+            try {
+                $this->importer($sha)->import($file, 'V23.6', $sha);
+                self::fail($case.' Poste proof must fail closed.');
+            } catch (\InvalidArgumentException $error) {
+                self::assertStringContainsString('Poste', $error->getMessage());
+                self::assertSame(0, (int) $this->db->fetchOne('SELECT count(*) FROM emission_factor'));
+            }
+        }
+    }
+
+    public function testPeriodAndChronologyMustExactlyMatchQualifiedPublication(): void
+    {
+        $original = file_get_contents($this->fixture());
+        $cases = [
+            'period' => $this->sourceReplace($original, 'avr-22', '2022'),
+            'chronology' => str_replace('27/04/2020', '27/04/2022', $original),
+        ];
+        foreach ($cases as $case => $content) {
+            $file = $this->temporary($content);
+            $sha = hash_file('sha256', $file);
+            try {
+                $this->importer($sha)->import($file, 'V23.6', $sha);
+                self::fail($case.' must fail.');
+            } catch (\InvalidArgumentException) {
+                self::assertSame(0, (int) $this->db->fetchOne('SELECT count(*) FROM emission_factor_import'));
+            }
+        }
+    }
+
+    public function testProviderFactorySelectsDemoAndOnlyIntegrityCheckedAdeme(): void
+    {
+        $demo = new DemoEmissionFactorRepository();
+        $sha = $this->fixtureSha();
+        $ademe = new PostgresEmissionFactorRepository($this->db, $sha);
+        self::assertSame($demo, (new EmissionFactorRepositoryFactory($demo, $ademe, 'demo'))->create());
+        $this->importer($sha)->import($this->fixture(), 'V23.6', $sha);
+        self::assertSame($ademe, (new EmissionFactorRepositoryFactory($demo, $ademe, 'ademe'))->create());
+    }
+
+    public function testAdemeAbsentOrCorruptFailsWithoutDemoFallback(): void
+    {
+        $sha = $this->fixtureSha();
+        $repository = new PostgresEmissionFactorRepository($this->db, $sha);
+        self::assertFalse($repository->isInitialized());
+        $this->assertProviderRejected($repository);
+
+        $this->importer($sha)->import($this->fixture(), 'V23.6', $sha);
+        foreach ([
+            "UPDATE emission_factor SET selection_status='archived'",
+            "UPDATE emission_factor SET external_id='wrong'",
+            "UPDATE emission_factor SET source_license='corrupt'",
+            "UPDATE emission_factor_import SET factor_count=2",
+        ] as $corruption) {
+            $this->db->executeStatement($corruption);
+            self::assertFalse($repository->isInitialized(), $corruption);
+            $this->assertProviderRejected($repository);
+            $this->db->executeStatement("UPDATE emission_factor SET selection_status='active', external_id='28000', source_license=:license", ['license'=>AdemeEmissionFactorImporter::LICENSE]);
+            $this->db->executeStatement('UPDATE emission_factor_import SET factor_count=1');
+        }
+    }
+
+    public function testInitializationDoesNotMaskDatabaseFailure(): void
+    {
+        $repository = new PostgresEmissionFactorRepository($this->db, $this->fixtureSha());
+        $this->db->executeStatement('DROP TABLE emission_factor_import CASCADE');
+        $this->expectException(DbalException::class);
+        $repository->isInitialized();
+    }
+
+    public function testChecksumCollisionIsRejectedAndHistoryIsStructurallyImmutable(): void
+    {
+        $sha = $this->fixtureSha();
+        $alternate = $this->temporary(file_get_contents($this->fixture())."\n");
+        $alternateSha = hash_file('sha256', $alternate);
+        $importer = new AdemeEmissionFactorImporter($this->db, [$sha, $alternateSha]);
+        $importer->import($this->fixture(), 'V23.6', $sha);
+
         try {
-            (new AdemeEmissionFactorImporter($this->db))->import($bad, 'V23.6', hash_file('sha256', $bad));
-        } finally {
+            $importer->import($alternate, 'V23.6', $alternateSha);
+            self::fail('A different checksum for the same publication must collide.');
+        } catch (\InvalidArgumentException $error) {
+            self::assertStringContainsString('collision', $error->getMessage());
+        }
+        self::assertSame(1, (int) $this->db->fetchOne('SELECT count(*) FROM emission_factor_import'));
+        self::assertSame($sha, $this->db->fetchOne('SELECT checksum_sha256 FROM emission_factor_import'));
+        self::assertSame('ADEME', $this->db->fetchOne('SELECT publisher FROM emission_factor_import'));
+    }
+
+    public function testFailureAfterMetadataWritesRollsBackWholeTransaction(): void
+    {
+        $this->db->executeStatement("CREATE FUNCTION reject_factor() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'forced factor failure'; END $$");
+        $this->db->executeStatement('CREATE TRIGGER reject_factor BEFORE INSERT ON emission_factor FOR EACH ROW EXECUTE FUNCTION reject_factor()');
+        $sha = $this->fixtureSha();
+        try {
+            $this->importer($sha)->import($this->fixture(), 'V23.6', $sha);
+            self::fail('Forced write failure must propagate.');
+        } catch (DbalException) {
+            self::assertSame(0, (int) $this->db->fetchOne('SELECT count(*) FROM data_source'));
+            self::assertSame(0, (int) $this->db->fetchOne('SELECT count(*) FROM emission_factor_import'));
             self::assertSame(0, (int) $this->db->fetchOne('SELECT count(*) FROM emission_factor'));
         }
+    }
+
+    public function testArchivedOutOfPeriodAndAmbiguousFactorsAreUnavailable(): void
+    {
+        $sha = $this->fixtureSha();
+        $this->importer($sha)->import($this->fixture(), 'V23.6', $sha);
+        $repository = new PostgresEmissionFactorRepository($this->db, $sha);
+        self::assertSame([], $repository->findCandidates('public_transport', 'bus_urban', 'FR-TM', new \DateTimeImmutable('2026-06-29')));
+        $this->db->executeStatement("UPDATE emission_factor SET selection_status='archived'");
+        self::assertSame([], $repository->findCandidates('public_transport', 'bus_urban', 'FR-TM', new \DateTimeImmutable('2027-01-01')));
+        $this->db->executeStatement("UPDATE emission_factor SET selection_status='active'");
+        $row = $this->db->fetchAssociative('SELECT * FROM emission_factor');
+        unset($row['id']);
+        $row['id'] = 'ambiguous-factor';
+        $row['external_id'] = '28000-alternate';
+        $this->db->insert('emission_factor', $row);
+        $estimate = (new EmissionEstimator($repository))->estimate([
+            ['id'=>'leg','mode'=>'public_transport','subtype'=>'bus_urban','distanceKm'=>10.0],
+        ], 1, 'FR-TM', new \DateTimeImmutable('2027-01-01'), 'real');
+        self::assertSame('unavailable', $estimate['status']);
+        self::assertNull($estimate['kgCO2ePerTraveler']);
+        self::assertStringContainsString('Plusieurs facteurs', $estimate['legs'][0]['reason']);
     }
 
     public function testInvalidStructureStatusUnitValueMappingDateAndEncodingAreFailClosed(): void
@@ -173,11 +278,11 @@ final class AdemeEmissionFactorTest extends KernelTestCase
             'date' => str_replace('15/12/2021', '31/02/2021', $original),
             'utf8 instead of source encoding' => mb_convert_encoding($original, 'UTF-8', 'Windows-1252'),
         ];
-        $importer = new AdemeEmissionFactorImporter($this->db);
         foreach ($invalid as $case => $content) {
             try {
                 $file = $this->temporary((string)$content);
-                $importer->import($file, 'V23.6', hash_file('sha256', $file));
+                $sha = hash_file('sha256', $file);
+                $this->importer($sha)->import($file, 'V23.6', $sha);
                 self::fail($case.' must be rejected.');
             } catch (\InvalidArgumentException) {
                 self::assertSame(0, (int)$this->db->fetchOne('SELECT count(*) FROM emission_factor_import'), $case);
@@ -185,16 +290,35 @@ final class AdemeEmissionFactorTest extends KernelTestCase
         }
     }
 
+    private function assertProviderRejected(PostgresEmissionFactorRepository $repository): void
+    {
+        try {
+            (new EmissionFactorRepositoryFactory(new DemoEmissionFactorRepository(), $repository, 'ademe'))->create();
+            self::fail('Corrupt or absent ADEME import must not fall back.');
+        } catch (\RuntimeException $error) {
+            self::assertStringContainsString('no demo fallback', $error->getMessage());
+        }
+    }
+
+    private function importer(string $qualifiedSha): AdemeEmissionFactorImporter
+    {
+        return new AdemeEmissionFactorImporter($this->db, [$qualifiedSha]);
+    }
+
     private function fixture(): string
     {
         return dirname(__DIR__).'/Fixtures/ademe-base-carbone-v23.6/selected.csv';
+    }
+
+    private function fixtureSha(): string
+    {
+        return hash_file('sha256', $this->fixture());
     }
 
     private function temporary(string $content): string
     {
         $path = tempnam(sys_get_temp_dir(), 'ademe-');
         file_put_contents($path, $content);
-        $this->addToAssertionCount(1);
         return $path;
     }
 

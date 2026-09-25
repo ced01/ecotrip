@@ -17,19 +17,19 @@ Fil Bleu fournit actuellement des horaires mais pas de distance. Ses émissions 
 L’unique identifiant autorisé est `28000`, ligne `Elément`, statut `Valide générique` : « Autobus moyen — Agglomération de plus de 250 000 habitants », France continentale, `0,151 kgCO2e/passager.km`, source amont « UTP - Enquête TCU 2017 ».
 
 - unité : conversion littérale documentée vers `kgCO2e/passenger-km` ;
-- mode : `public_transport`, sous-type générique `null`, géographie EcoTrip `FR-TM` (Tours Métropole) ;
-- périmètre : `life_cycle`, car l’élément ADEME est « décomposé par poste » et l’export officiel détaille un poste carburant (amont/combustion) et un poste fabrication ;
+- mode : `public_transport`, sous-type explicite `bus_urban`, géographie EcoTrip `FR-TM` (Tours Métropole). Il ne peut donc correspondre ni à un train, ni à un autocar, ni à un transport public sans sous-type ;
+- périmètre : `life_cycle`, car les lignes `Poste` officielles et obligatoires valent exactement `Carburant (amont/combustion) = 0,129` et `Fabrication = 0,0225`. Une ligne absente, modifiée ou contradictoire interdit l’activation ;
 - période source : `avr-22` est conservée textuellement. Elle n’est **pas** transformée en date de fin ;
-- validité EcoTrip : date effective explicite de publication/import (`2026-06-30` par défaut pour V23.6), sans fin inventée ; une version ultérieure prend effet uniquement à sa propre date explicite ;
-- méthode : `ademe-v23.6-explicit-map-v1`, stockée avec les notes, le checksum et toutes les métadonnées sources.
+- validité EcoTrip : date effective qualifiée `2026-06-30`, analysée strictement au format `YYYY-MM-DD`, sans fin inventée ;
+- méthode : `ademe-v23.6-explicit-map-v2`, stockée avec les notes, le checksum et toutes les métadonnées sources.
 
 La catégorie démographique est cohérente avec la population officielle de Tours Métropole, mais reste une moyenne UTP de réseau urbain : elle ne constitue pas une mesure spécifique d’un bus ou trajet Fil Bleu. Tout changement de libellé, statut, unité, géographie, structure ou identifiant fait échouer l’import.
 
 ## Historique, provenance et contrôles
 
-L’identité historique inclut source, identifiant externe et version de publication. Une réimportation au même checksum renvoie l’import existant sans mutation. Une même version avec un checksum différent, un doublon contradictoire, un identifiant attendu absent, un checksum/encodage/séparateur/colonnes/date/statut/unité/valeur/mapping invalide fait échouer toute la transaction.
+L’identité historique inclut source, identifiant externe et version de publication. Une réimportation au même checksum renvoie l’import existant sans mutation. L’import courant refuse toute version autre que V23.6 et tout checksum autre que le snapshot officiel. Une même version avec un checksum différent, un doublon contradictoire, un identifiant attendu absent, une preuve `Poste` incomplète, un checksum/encodage/séparateur/colonnes/date/statut/unité/valeur/mapping invalide fait échouer toute la transaction. Un verrou transactionnel PostgreSQL sérialise deux imports concurrents de la même publication.
 
-Chaque facteur restitue valeur et unité source/normalisées, identifiant, noms, statut, géographie et période sources, mode, périmètre, éventuelle occupation, version, source amont, URL, licence, date d’accès, checksum et notes/méthode de mapping.
+Chaque facteur restitue valeur et unité source/normalisées, identifiant, noms, statut, géographie et période sources, mode, périmètre, éventuelle occupation, version, source amont, URL, licence, date d’accès, checksum et notes/méthode de mapping. URL, licence, date d’accès, checksum et méthode sont lus depuis l’import immuable autoritatif. `selection_status` reste un détail interne de sélection et n’est pas exposé par le schéma API `Factor`.
 
 ## Statuts et comparabilité
 
@@ -43,6 +43,6 @@ Chaque facteur restitue valeur et unité source/normalisées, identifiant, noms,
 - Version : V23.6 ; accès : 2026-09-24 ; licence : Licence Ouverte / Open Licence (Etalab)
 - Snapshot : 10 761 452 octets ; SHA-256 `01472bc24743c0265b649407508dfce896f15a5c11c0f612f6b47a5625b02653`
 
-La Base Carbone est publiée irrégulièrement. EcoTrip ne met jamais à jour en place : télécharger une nouvelle publication hors application, vérifier sa documentation, choisir une nouvelle version et un checksum, importer additivement avec sa date effective, valider en base, puis seulement modifier la configuration. Ne jamais supprimer l’ancienne version.
+La Base Carbone est publiée irrégulièrement. EcoTrip ne met jamais à jour en place : télécharger une nouvelle publication hors application, vérifier sa documentation, ajouter et revoir son mapping/version/checksum/date au registre qualifié, importer additivement, valider en base, puis seulement modifier la configuration. Tant que ce travail n’est pas livré, la commande refuse cette publication. Ne jamais supprimer l’ancienne version.
 
 La méthode ne constitue ni une ACV complète ni un conseil de réservation. Elle ne couvre pas prix, disponibilité, hébergement, forçage radiatif, effets rebond ni score global. L’incertitude ADEME et la représentativité moyenne doivent rester prises en compte.
