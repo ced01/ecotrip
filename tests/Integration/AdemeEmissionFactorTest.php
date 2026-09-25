@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Integration;
 
 use App\Demo\DemoEmissionFactorRepository;
+use App\Environmental\AdemePublicationRegistry;
 use App\Environmental\AdemeEmissionFactorImporter;
 use App\Environmental\EmissionEstimator;
 use App\Environmental\EmissionFactorRepositoryFactory;
@@ -177,7 +178,7 @@ final class AdemeEmissionFactorTest extends KernelTestCase
         self::assertSame($ademe, (new EmissionFactorRepositoryFactory($demo, $ademe, 'ademe'))->create());
     }
 
-    public function testAdemeAbsentOrCorruptFailsWithoutDemoFallback(): void
+    public function testAdemeAbsentOrEveryCorruptInvariantFailsWithoutDemoFallback(): void
     {
         $sha = $this->fixtureSha();
         $repository = new PostgresEmissionFactorRepository($this->db, $sha);
@@ -185,18 +186,112 @@ final class AdemeEmissionFactorTest extends KernelTestCase
         $this->assertProviderRejected($repository);
 
         $this->importer($sha)->import($this->fixture(), 'V23.6', $sha);
-        foreach ([
-            "UPDATE emission_factor SET selection_status='archived'",
-            "UPDATE emission_factor SET external_id='wrong'",
-            "UPDATE emission_factor SET source_license='corrupt'",
-            "UPDATE emission_factor_import SET factor_count=2",
-        ] as $corruption) {
-            $this->db->executeStatement($corruption);
-            self::assertFalse($repository->isInitialized(), $corruption);
+        $this->db->executeStatement(<<<'SQL'
+INSERT INTO data_source (id,publisher,url,license,accessed_at,version,reuse_notes,data_status)
+VALUES ('unqualified-source','Synthetic','https://invalid.example','none','2026-09-24','TEST','Test-only FK target.','demo')
+SQL);
+        $factor = $this->db->fetchAssociative('SELECT * FROM emission_factor');
+        $import = $this->db->fetchAssociative('SELECT * FROM emission_factor_import');
+        self::assertIsArray($factor);
+        self::assertIsArray($import);
+        $corruptions = [
+            ['emission_factor', 'value', '0.152'],
+            ['emission_factor', 'source_value', '0,152'],
+            ['emission_factor', 'valid_from', '2026-07-01'],
+            ['emission_factor', 'valid_until', '2027-01-01'],
+            ['emission_factor', 'source_status', 'Archivé'],
+            ['emission_factor', 'source_name', 'Autobus inventé'],
+            ['emission_factor', 'source_attribute', 'Autre agglomération'],
+            ['emission_factor', 'source_geography', 'Monde'],
+            ['emission_factor', 'source_period', '2022'],
+            ['emission_factor', 'upstream_source', 'Source inconnue'],
+            ['emission_factor', 'source_id', 'unqualified-source'],
+            ['emission_factor', 'external_id', 'wrong'],
+            ['emission_factor', 'mode', 'train'],
+            ['emission_factor', 'subtype', 'coach'],
+            ['emission_factor', 'geography', 'FR'],
+            ['emission_factor', 'scope', 'operation'],
+            ['emission_factor', 'unit', 'kgCO2e/vehicle-km'],
+            ['emission_factor', 'status', 'synthetic_test'],
+            ['emission_factor', 'selection_status', 'archived'],
+            ['emission_factor', 'checksum_sha256', str_repeat('a', 64)],
+            ['emission_factor', 'version', 'V23.7'],
+            ['emission_factor', 'source_url', 'https://invalid.example'],
+            ['emission_factor', 'source_license', 'corrupt'],
+            ['emission_factor', 'accessed_at', '2026-09-25'],
+            ['emission_factor', 'mapping_method', 'unreviewed'],
+            ['emission_factor', 'mapping_notes', 'insufficient proof'],
+            ['emission_factor_import', 'source_id', 'unqualified-source'],
+            ['emission_factor_import', 'source_version', 'V23.7'],
+            ['emission_factor_import', 'checksum_sha256', str_repeat('b', 64)],
+            ['emission_factor_import', 'accessed_at', '2026-09-25'],
+            ['emission_factor_import', 'effective_from', '2026-07-01'],
+            ['emission_factor_import', 'factor_count', 2],
+            ['emission_factor_import', 'publisher', 'Not ADEME'],
+            ['emission_factor_import', 'publication_url', 'https://invalid.example'],
+            ['emission_factor_import', 'source_license', 'corrupt'],
+            ['emission_factor_import', 'mapping_method', 'unreviewed'],
+        ];
+        foreach ($corruptions as [$table, $field, $badValue]) {
+            $id = $table === 'emission_factor' ? $factor['id'] : $import['id'];
+            $original = $table === 'emission_factor' ? $factor[$field] : $import[$field];
+            $this->db->update($table, [$field => $badValue], ['id' => $id]);
+            $label = $table.'.'.$field;
+            self::assertFalse($repository->isInitialized(), $label);
             $this->assertProviderRejected($repository);
-            $this->db->executeStatement("UPDATE emission_factor SET selection_status='active', external_id='28000', source_license=:license", ['license'=>AdemeEmissionFactorImporter::LICENSE]);
-            $this->db->executeStatement('UPDATE emission_factor_import SET factor_count=1');
+            $this->db->update($table, [$field => $original], ['id' => $id]);
+            self::assertTrue($repository->isInitialized(), 'restored '.$label);
         }
+    }
+
+    public function testUnqualifiedPublicationsAreNeitherSelectedNorAllowedToMaskTheQualifiedCandidate(): void
+    {
+        $sha = $this->fixtureSha();
+        $this->importer($sha)->import($this->fixture(), 'V23.6', $sha);
+        $repository = new PostgresEmissionFactorRepository($this->db, $sha);
+
+        foreach ([
+            'other-source' => ['source_id' => 'unqualified-source'],
+            'wrong-version' => ['source_version' => 'V23.7'],
+            'wrong-checksum' => ['checksum_sha256' => str_repeat('c', 64)],
+            'wrong-method' => ['mapping_method' => 'unreviewed'],
+            'wrong-external-id' => ['external_id' => '99999'],
+            'wrong-publisher' => ['publisher' => 'Not ADEME'],
+        ] as $name => $changes) {
+            $this->insertSyntheticPublication('bad-'.$name, '2099-01-01', $changes);
+        }
+
+        $candidates = $repository->findCandidates('public_transport', 'bus_urban', 'FR-TM', new \DateTimeImmutable('2100-01-01'));
+        self::assertCount(1, $candidates);
+        self::assertSame('V23.6', $candidates[0]['version']);
+        self::assertSame('28000', $candidates[0]['externalId']);
+
+        $this->db->executeStatement("UPDATE emission_factor SET source_period='corrupt' WHERE version='V23.6'");
+        self::assertSame([], $repository->findCandidates('public_transport', 'bus_urban', 'FR-TM', new \DateTimeImmutable('2100-01-01')));
+    }
+
+    public function testSyntheticQualifiedRegistryPreservesHistoryAndSelectsDeterministicallyByDate(): void
+    {
+        $oldChecksum = str_repeat('d', 64);
+        $newChecksum = str_repeat('e', 64);
+        $registry = AdemePublicationRegistry::syntheticForRepositoryTest([
+            ['sourceVersion' => 'SYNTHETIC-OLD', 'checksum' => $oldChecksum, 'effectiveFrom' => '2025-01-01'],
+            ['sourceVersion' => 'SYNTHETIC-NEW', 'checksum' => $newChecksum, 'effectiveFrom' => '2026-01-01'],
+        ]);
+        $this->insertSyntheticPublication('SYNTHETIC-OLD', '2025-01-01', ['checksum_sha256' => $oldChecksum]);
+        $this->insertSyntheticPublication('SYNTHETIC-NEW', '2026-01-01', ['checksum_sha256' => $newChecksum]);
+
+        self::assertSame(2, (int) $this->db->fetchOne('SELECT count(*) FROM emission_factor_import'));
+        self::assertSame(2, (int) $this->db->fetchOne('SELECT count(*) FROM emission_factor'));
+
+        $production = new PostgresEmissionFactorRepository($this->db, $this->fixtureSha());
+        self::assertFalse($production->isInitialized(), 'Synthetic publications must never activate the production provider.');
+        self::assertSame([], $production->findCandidates('public_transport', 'bus_urban', 'FR-TM', new \DateTimeImmutable('2027-01-01')));
+
+        $structuralRepository = new PostgresEmissionFactorRepository($this->db, null, $registry);
+        self::assertSame('SYNTHETIC-OLD', $structuralRepository->findCandidates('public_transport', 'bus_urban', 'FR-TM', new \DateTimeImmutable('2025-06-01'))[0]['version']);
+        self::assertSame('SYNTHETIC-NEW', $structuralRepository->findCandidates('public_transport', 'bus_urban', 'FR-TM', new \DateTimeImmutable('2026-06-01'))[0]['version']);
+        self::assertSame(2, (int) $this->db->fetchOne('SELECT count(*) FROM emission_factor'), 'Selecting a newer publication must not mutate history.');
     }
 
     public function testInitializationDoesNotMaskDatabaseFailure(): void
@@ -241,7 +336,7 @@ final class AdemeEmissionFactorTest extends KernelTestCase
         }
     }
 
-    public function testArchivedOutOfPeriodAndAmbiguousFactorsAreUnavailable(): void
+    public function testArchivedOutOfPeriodAndAmbiguousOrCorruptFactorsAreUnavailable(): void
     {
         $sha = $this->fixtureSha();
         $this->importer($sha)->import($this->fixture(), 'V23.6', $sha);
@@ -260,7 +355,7 @@ final class AdemeEmissionFactorTest extends KernelTestCase
         ], 1, 'FR-TM', new \DateTimeImmutable('2027-01-01'), 'real');
         self::assertSame('unavailable', $estimate['status']);
         self::assertNull($estimate['kgCO2ePerTraveler']);
-        self::assertStringContainsString('Plusieurs facteurs', $estimate['legs'][0]['reason']);
+        self::assertStringContainsString('Aucun facteur', $estimate['legs'][0]['reason']);
     }
 
     public function testInvalidStructureStatusUnitValueMappingDateAndEncodingAreFailClosed(): void
@@ -288,6 +383,60 @@ final class AdemeEmissionFactorTest extends KernelTestCase
                 self::assertSame(0, (int)$this->db->fetchOne('SELECT count(*) FROM emission_factor_import'), $case);
             }
         }
+    }
+
+    /** @param array<string, string> $changes */
+    private function insertSyntheticPublication(string $version, string $effectiveFrom, array $changes = []): void
+    {
+        $sourceId = $changes['source_id'] ?? AdemeEmissionFactorImporter::SOURCE_ID;
+        $sourceVersion = $changes['source_version'] ?? $version;
+        $checksum = $changes['checksum_sha256'] ?? hash('sha256', $version);
+        $mappingMethod = $changes['mapping_method'] ?? AdemeEmissionFactorImporter::MAPPING_METHOD;
+        $publisher = $changes['publisher'] ?? 'ADEME';
+        $externalId = $changes['external_id'] ?? '28000';
+
+        $this->db->executeStatement(<<<'SQL'
+INSERT INTO data_source (id,publisher,url,license,accessed_at,version,reuse_notes,data_status)
+VALUES (:id,'ADEME',:url,:license,:accessed,:version,'Explicitly synthetic integration-test data; never production-qualified.','verified')
+ON CONFLICT (id) DO NOTHING
+SQL, ['id' => $sourceId, 'url' => AdemeEmissionFactorImporter::CATALOG_URL, 'license' => AdemeEmissionFactorImporter::LICENSE, 'accessed' => AdemeEmissionFactorImporter::ACCESSED_AT, 'version' => $sourceVersion]);
+        $importId = (int) $this->db->fetchOne(<<<'SQL'
+INSERT INTO emission_factor_import
+(source_id,source_version,checksum_sha256,accessed_at,effective_from,factor_count,status,publisher,publication_url,source_license,mapping_method)
+VALUES (:source,:version,:checksum,:accessed,:effective,1,'complete',:publisher,:url,:license,:mapping)
+RETURNING id
+SQL, ['source' => $sourceId, 'version' => $sourceVersion, 'checksum' => $checksum, 'accessed' => AdemeEmissionFactorImporter::ACCESSED_AT, 'effective' => $effectiveFrom, 'publisher' => $publisher, 'url' => AdemeEmissionFactorImporter::CATALOG_URL, 'license' => AdemeEmissionFactorImporter::LICENSE, 'mapping' => $mappingMethod]);
+
+        $factor = $this->db->fetchAssociative("SELECT * FROM emission_factor WHERE version='V23.6' LIMIT 1");
+        if ($factor === false) {
+            $factor = $this->qualifiedFactorRow();
+        }
+        $factor['id'] = 'synthetic-'.substr(hash('sha256', $sourceId."\0".$sourceVersion), 0, 32);
+        $factor['import_id'] = $importId;
+        $factor['source_id'] = $sourceId;
+        $factor['version'] = $sourceVersion;
+        $factor['external_id'] = $externalId;
+        $factor['valid_from'] = $effectiveFrom;
+        $factor['valid_until'] = null;
+        $factor['checksum_sha256'] = $checksum;
+        $factor['mapping_method'] = $mappingMethod;
+        $this->db->insert('emission_factor', $factor);
+    }
+
+    /** @return array<string, mixed> */
+    private function qualifiedFactorRow(): array
+    {
+        return [
+            'value' => '0.151', 'unit' => 'kgCO2e/passenger-km', 'mode' => 'public_transport', 'subtype' => 'bus_urban',
+            'geography' => 'FR-TM', 'valid_from' => AdemeEmissionFactorImporter::EFFECTIVE_FROM, 'valid_until' => null,
+            'scope' => 'life_cycle', 'occupancy' => null, 'status' => 'verified', 'source_value' => '0,151',
+            'source_unit' => 'kgCO2e/passager.km', 'source_status' => 'Valide générique', 'source_name' => 'Autobus moyen',
+            'source_attribute' => 'Agglomération de plus de 250 000 habitants', 'source_geography' => 'France continentale',
+            'source_period' => 'avr-22', 'upstream_source' => 'UTP - Enquête TCU 2017',
+            'source_url' => AdemeEmissionFactorImporter::CATALOG_URL, 'source_license' => AdemeEmissionFactorImporter::LICENSE,
+            'accessed_at' => AdemeEmissionFactorImporter::ACCESSED_AT, 'selection_status' => 'active',
+            'mapping_notes' => AdemeEmissionFactorImporter::MAPPING_NOTES,
+        ];
     }
 
     private function assertProviderRejected(PostgresEmissionFactorRepository $repository): void

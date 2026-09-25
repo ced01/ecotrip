@@ -18,6 +18,7 @@ final readonly class AdemeEmissionFactorImporter
     public const ACCESSED_AT = '2026-09-24';
     public const EFFECTIVE_FROM = '2026-06-30';
     public const MAPPING_METHOD = 'ademe-v23.6-explicit-map-v2';
+    public const MAPPING_NOTES = '28000 explicitement autorisé pour le sous-type bus_urban uniquement. Les lignes Poste officielles Carburant (amont/combustion)=0,129 et Fabrication=0,0225 qualifient le périmètre life_cycle. Applicabilité démographique: Tours Métropole Val de Loire (EPCI 243700754), 301 339 habitants en 2023, INSEE https://www.insee.fr/fr/statistiques/1405599?geo=EPCI-243700754 (consulté le 2026-09-24). Moyenne de classe démographique, jamais mesure Fil Bleu; aucune occupation inventée. Période source avr-22 conservée textuellement, sans date de fin inventée.';
     public const EXPECTED_FACTOR_COUNT = 1;
     /** @var list<string> */
     public const EXPECTED_IDS = ['28000'];
@@ -100,7 +101,7 @@ SQL, ['source'=>self::SOURCE_ID,'version'=>$sourceVersion,'checksum'=>$expectedS
                     'source_geography'=>$row['sourceGeography'], 'source_period'=>$row['sourcePeriod'], 'upstream_source'=>$row['upstreamSource'],
                     'source_url'=>self::CATALOG_URL, 'source_license'=>self::LICENSE, 'accessed_at'=>self::ACCESSED_AT,
                     'checksum_sha256'=>$expectedSha256, 'mapping_method'=>self::MAPPING_METHOD,
-                    'mapping_notes'=>'28000 explicitement autorisé pour le sous-type bus_urban uniquement. Les lignes Poste officielles Carburant (amont/combustion)=0,129 et Fabrication=0,0225 qualifient le périmètre life_cycle. Applicabilité démographique: Tours Métropole Val de Loire (EPCI 243700754), 301 339 habitants en 2023, INSEE https://www.insee.fr/fr/statistiques/1405599?geo=EPCI-243700754 (consulté le 2026-09-24). Moyenne de classe démographique, jamais mesure Fil Bleu; aucune occupation inventée. Période source avr-22 conservée textuellement, sans date de fin inventée.',
+                    'mapping_notes'=>self::MAPPING_NOTES,
                 ]);
             }
             return new EmissionFactorImportResult($importId, $sourceVersion, $expectedSha256, count($rows));
